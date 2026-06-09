@@ -1,4 +1,4 @@
-# pece-usp-tcc
+# projeto-3w-aws
 Detecção de Anomalias em Sensores de Poços Submarinos com Machine Learning
 
 # Visão Geral do Projeto

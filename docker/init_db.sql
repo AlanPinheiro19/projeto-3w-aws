@@ -3,7 +3,17 @@
 -- Executado automaticamente na primeira inicializacao do container postgres
 
 -- ---------------------------------------------------------------------------
--- Schema principal
+-- Banco do Airflow (criado aqui para evitar erro na primeira inicializacao)
+-- O Airflow usa o mesmo servidor PostgreSQL porem banco separado: "airflow"
+-- ---------------------------------------------------------------------------
+
+SELECT 'CREATE DATABASE airflow'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'airflow')\gexec
+
+GRANT ALL PRIVILEGES ON DATABASE airflow TO glue_user;
+
+-- ---------------------------------------------------------------------------
+-- Schema principal do projeto
 -- ---------------------------------------------------------------------------
 
 CREATE SCHEMA IF NOT EXISTS well_events;

@@ -8,6 +8,7 @@ Date: 2025-01-08
 
 import requests
 import pandas as pd
+import os
 from pathlib import Path
 from io import BytesIO
 import time
@@ -19,7 +20,7 @@ from typing import List, Dict, Tuple
 # -----------------------------------------------------------------------------
 
 CLASSE = "0"
-BASE_DIR = Path("D:/Alan/Alan/Pos GRADUAÇÂO USP/eEDB-007 - Trabalho de Conclusão/projeto-3w-aws/data")
+BASE_DIR = Path(os.environ.get("PROJECT_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
 LOCAL_DIR = BASE_DIR / f"classe{CLASSE}_wells_02_only"
 API_URL = f"https://api.github.com/repos/petrobras/3W/contents/dataset/{CLASSE}"
 

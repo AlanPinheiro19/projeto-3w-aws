@@ -28,10 +28,11 @@ logger = logging.getLogger(__name__)
 # -----------------------------------------------------------------------------
 # Configuracoes de caminhos
 # Suporta sobrescrita via variavel de ambiente PROJECT_DIR para rodar em Docker
-# (container usa /home/glue_user/workspace, Windows usa D:/Alan/Alan/Pos GRADUAÇÂO USP/eEDB-007 - Trabalho de Conclusão/projeto-3w-aws)
+# ou fora dele. Quando PROJECT_DIR nao esta definido, resolve automaticamente
+# o diretorio raiz do projeto a partir da localizacao deste arquivo (config/).
 # -----------------------------------------------------------------------------
 
-BASE_DIR = Path(os.environ.get("PROJECT_DIR", "D:/Alan/Alan/Pos GRADUAÇÂO USP/eEDB-007 - Trabalho de Conclusão/projeto-3w-aws"))
+BASE_DIR = Path(os.environ.get("PROJECT_DIR", Path(__file__).resolve().parent.parent))
 DATA_DIR = BASE_DIR / "data"
 RAW_DIR = DATA_DIR / "raw"
 BRONZE_DIR = DATA_DIR / "bronze"
@@ -90,11 +91,17 @@ RATE_LIMIT_DELAY = 0.3
 # -----------------------------------------------------------------------------
 
 def setup_directories() -> None:
-    """Cria a estrutura de diretorios necessaria para o projeto."""
-    directories = [RAW_DIR, BRONZE_DIR, SILVER_DIR, GOLD_DIR, PROCESSED_DIR, LOGS_DIR]
+    """Cria a estrutura de diretorios necessaria para o projeto.
+    LOGS_DIR e omitido intencionalmente: dentro do container Airflow o usuario
+    nao tem permissao de escrita em workspace/logs (gerenciado pelo Airflow).
+    """
+    directories = [RAW_DIR, BRONZE_DIR, SILVER_DIR, GOLD_DIR, PROCESSED_DIR]
     for directory in directories:
-        directory.mkdir(parents=True, exist_ok=True)
-        logger.info("Diretorio verificado: %s", directory)
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            logger.info("Diretorio verificado: %s", directory)
+        except PermissionError:
+            logger.warning("Sem permissao para criar: %s -- ignorando", directory)
 
 
 # -----------------------------------------------------------------------------

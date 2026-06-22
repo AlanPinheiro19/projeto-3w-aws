@@ -1,0 +1,45 @@
+=== XGBOOST BASELINE — 3W DATASET ===
+
+n_estimators (max)   : 500
+best_iteration       : 500
+max_depth            : 6
+learning_rate        : 0.05
+subsample            : 0.8
+colsample_bytree     : 0.8
+pesos de classe      : inverso da frequência
+
+── VALIDAÇÃO ──
+Acurácia   : 0.9932
+F1 weighted: 0.9947
+F1 macro   : 0.8990
+
+                  precision    recall  f1-score   support
+
+          Normal       1.00      0.99      1.00    875782
+      BSW Abrupt       1.00      1.00      1.00     26209
+    DHSV Closure       0.25      1.00      0.40      1908
+Flow Instability       0.99      1.00      0.99    171158
+ PCK Restriction       1.00      1.00      1.00     10544
+         Scaling       1.00      1.00      1.00     37023
+
+        accuracy                           0.99   1122624
+       macro avg       0.87      1.00      0.90   1122624
+    weighted avg       1.00      0.99      0.99   1122624
+
+── TESTE ──
+Acurácia   : 0.9933
+F1 weighted: 0.9947
+F1 macro   : 0.9002
+
+                  precision    recall  f1-score   support
+
+          Normal       1.00      0.99      1.00    875780
+      BSW Abrupt       1.00      1.00      1.00     26209
+    DHSV Closure       0.26      1.00      0.41      1908
+Flow Instability       0.99      1.00      0.99    171158
+ PCK Restriction       1.00      1.00      1.00     10545
+         Scaling       1.00      1.00      1.00     37022
+
+        accuracy                           0.99   1122622
+       macro avg       0.87      1.00      0.90   1122622
+    weighted avg       1.00      0.99      0.99   1122622

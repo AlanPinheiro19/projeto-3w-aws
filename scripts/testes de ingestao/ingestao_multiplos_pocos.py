@@ -10,6 +10,7 @@ Version: 3.0 - All classes (0-9)
 
 import requests
 import pandas as pd
+import os
 from pathlib import Path
 import time
 import logging
@@ -28,7 +29,7 @@ CLASSES = [str(i) for i in range(10)]  # ['0', '1', '2', '3', '4', '5', '6', '7'
 WELLS_TO_FILTER = ["WELL-00002", "WELL-00004", "WELL-00006"]
 
 # Base directories
-BASE_DIR = Path("D:/Alan/Alan/Pos GRADUAÇÂO USP/eEDB-007 - Trabalho de Conclusão/projeto-3w-aws/data")
+BASE_DIR = Path(os.environ.get("PROJECT_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
 RAW_DIR = BASE_DIR / "raw"  # Raw downloaded files
 PROCESSED_DIR = BASE_DIR / "processed"  # Processed files with metadata
 

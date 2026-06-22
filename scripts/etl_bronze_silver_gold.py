@@ -309,32 +309,51 @@ def _safe_col(name: str) -> str:
 
 
 def create_rolling_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Rolling mean, std, min, max por janela e por poco."""
+    """Rolling mean, std, min, max por janela e por poco.
+
+    Estrategia de memoria: processa UM SENSOR POR VEZ e concatena ao df
+    imediatamente, liberando o dict antes de passar para o proximo sensor.
+    Pico de alocacao = ~12 colunas (1 sensor x 4 stats x 3 janelas) em vez
+    de 96 colunas de uma vez. Features sao salvas em float32 (metade da RAM).
+    """
     partition_cols = [c for c in ["ID_Poco", TARGET_COLUMN] if c in df.columns]
 
     for sensor in SENSOR_COLUMNS:
         if sensor not in df.columns:
             continue
         safe = _safe_col(sensor)
+        grp = df.groupby(partition_cols)[sensor] if partition_cols else df[sensor]
+        new_cols: dict = {}
         for w in ROLLING_WINDOWS:
-            grp = df.groupby(partition_cols)[sensor] if partition_cols else df[sensor]
-            df[f"{safe}_roll_mean_{w}"] = grp.transform(
-                lambda s, _w=w: s.rolling(_w, min_periods=1).mean()
+            new_cols[f"{safe}_roll_mean_{w}"] = (
+                grp.transform(lambda s, _w=w: s.rolling(_w, min_periods=1).mean())
+                .astype("float32")
             )
-            df[f"{safe}_roll_std_{w}"] = grp.transform(
-                lambda s, _w=w: s.rolling(_w, min_periods=1).std().fillna(0)
+            new_cols[f"{safe}_roll_std_{w}"] = (
+                grp.transform(lambda s, _w=w: s.rolling(_w, min_periods=1).std().fillna(0))
+                .astype("float32")
             )
-            df[f"{safe}_roll_min_{w}"] = grp.transform(
-                lambda s, _w=w: s.rolling(_w, min_periods=1).min()
+            new_cols[f"{safe}_roll_min_{w}"] = (
+                grp.transform(lambda s, _w=w: s.rolling(_w, min_periods=1).min())
+                .astype("float32")
             )
-            df[f"{safe}_roll_max_{w}"] = grp.transform(
-                lambda s, _w=w: s.rolling(_w, min_periods=1).max()
+            new_cols[f"{safe}_roll_max_{w}"] = (
+                grp.transform(lambda s, _w=w: s.rolling(_w, min_periods=1).max())
+                .astype("float32")
             )
+        # Atribuição direta evita pd.concat e a consolidação de blocos (OOM)
+        for col_name, series in new_cols.items():
+            df[col_name] = series
+        del new_cols
+
     return df
 
 
 def create_lag_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Variaveis de lag temporal por poco."""
+    """Variaveis de lag temporal por poco.
+    Processa um sensor por vez para limitar o pico de memoria (~3 colunas/sensor).
+    Features em float32.
+    """
     partition_cols = [c for c in ["ID_Poco", TARGET_COLUMN] if c in df.columns]
 
     for sensor in SENSOR_COLUMNS:
@@ -343,14 +362,19 @@ def create_lag_features(df: pd.DataFrame) -> pd.DataFrame:
         safe = _safe_col(sensor)
         for lag in LAG_STEPS:
             if partition_cols:
-                df[f"{safe}_lag_{lag}"] = df.groupby(partition_cols)[sensor].shift(lag)
+                col = df.groupby(partition_cols)[sensor].shift(lag).astype("float32")
             else:
-                df[f"{safe}_lag_{lag}"] = df[sensor].shift(lag)
+                col = df[sensor].shift(lag).astype("float32")
+            df[f"{safe}_lag_{lag}"] = col
+            del col
+
     return df
 
 
 def create_delta_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Taxa de variacao (delta) entre instantes consecutivos por poco."""
+    """Taxa de variacao (delta) entre instantes consecutivos por poco.
+    Processa um sensor por vez. Feature em float32.
+    """
     partition_cols = [c for c in ["ID_Poco", TARGET_COLUMN] if c in df.columns]
 
     for sensor in SENSOR_COLUMNS:
@@ -358,47 +382,65 @@ def create_delta_features(df: pd.DataFrame) -> pd.DataFrame:
             continue
         safe = _safe_col(sensor)
         if partition_cols:
-            df[f"{safe}_delta"] = df.groupby(partition_cols)[sensor].diff()
+            delta = df.groupby(partition_cols)[sensor].diff().astype("float32")
         else:
-            df[f"{safe}_delta"] = df[sensor].diff()
+            delta = df[sensor].diff().astype("float32")
+        df[f"{safe}_delta"] = delta
+        del delta
+
     return df
 
 
 def normalize_features(df: pd.DataFrame, feature_cols: list, train_mask: pd.Series) -> tuple:
     """
     Normalizacao Z-score calculada APENAS no conjunto de treino.
+    Opera in-place (renomeia colunas para _norm) para evitar duplicar memoria.
     Retorna (df_normalizado, dict_stats) para uso posterior na inferencia.
     """
     stats = {}
-    df_norm = df.copy()
+    rename_map = {}
 
     for col in feature_cols:
-        if col not in df_norm.columns:
+        if col not in df.columns:
             continue
-        mean_val = df_norm.loc[train_mask, col].mean()
-        std_val = df_norm.loc[train_mask, col].std()
+        train_vals = df.loc[train_mask, col]
+        mean_val = float(train_vals.mean())
+        std_val  = float(train_vals.std())
         if pd.isna(std_val) or std_val == 0:
             std_val = 1.0
-        stats[col] = {"mean": float(mean_val), "std": float(std_val)}
-        df_norm[f"{col}_norm"] = (df_norm[col] - mean_val) / std_val
+        stats[col] = {"mean": mean_val, "std": std_val}
+        # Normaliza a coluna no lugar — sem duplicar o DataFrame
+        df[col] = (df[col] - mean_val) / std_val
+        rename_map[col] = f"{col}_norm"
 
-    return df_norm, stats
+    df = df.rename(columns=rename_map)
+    return df, stats
 
 
 def run_gold(df_silver: pd.DataFrame = None) -> pd.DataFrame:
     """
     Engenharia de features e preparacao do dataset ML-ready.
 
+    Estrategia de memoria (evita OOM com datasets > 1M linhas):
+    - Passo 1: features computadas por poco -> parquets temporarios (sem acumulacao)
+    - Passo 2: stats de normalizacao calculadas do conjunto de treino via acumulacao
+               de sum/sumsq (memoria constante, independente do tamanho)
+    - Passo 3: normalizacao aplicada por poco e saida escrita incrementalmente
+
     Transformacoes:
     - Rolling statistics (mean, std, min, max) janelas 5, 10, 30
     - Variaveis de lag (1, 3, 5 passos)
     - Taxa de variacao (delta) por sensor
-    - Normalizacao Z-score (stats calculadas so no treino)
+    - Normalizacao Z-score (stats calculadas so no treino, globalmente)
     - Divisao temporal: treino 70% / validacao 15% / teste 15%
     - Salva train.parquet, val.parquet, test.parquet em data/gold/
     """
+    import gc
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
     logger.info("=" * 60)
-    logger.info("GOLD - iniciando")
+    logger.info("GOLD - iniciando (modo eficiente em memoria)")
     logger.info("=" * 60)
 
     if df_silver is None or df_silver.empty:
@@ -408,74 +450,509 @@ def run_gold(df_silver: pd.DataFrame = None) -> pd.DataFrame:
         logger.error("Sem dados na camada Silver.")
         return pd.DataFrame()
 
-    df = df_silver.copy()
-
-    # Ordena por poco e timestamp para garantir sequencia correta
-    sort_cols = [c for c in ["ID_Poco", TIMESTAMP_COLUMN] if c in df.columns]
+    # Ordena por poco + timestamp
+    sort_cols = [c for c in ["ID_Poco", TIMESTAMP_COLUMN] if c in df_silver.columns]
     if sort_cols:
-        df = df.sort_values(sort_cols).reset_index(drop=True)
+        df_silver = df_silver.sort_values(sort_cols).reset_index(drop=True)
 
-    logger.info("Gold: criando rolling features...")
-    df = create_rolling_features(df)
-
-    logger.info("Gold: criando lag features...")
-    df = create_lag_features(df)
-
-    logger.info("Gold: criando delta features...")
-    df = create_delta_features(df)
-
-    # Remove linhas com nulos gerados pelas janelas iniciais
-    meta_cols = {TIMESTAMP_COLUMN, "ID_Poco", TARGET_COLUMN,
+    META_COLS = {TIMESTAMP_COLUMN, "ID_Poco", TARGET_COLUMN,
                  "nome_evento", "bronze_at", "silver_at"}
-    feature_cols = [c for c in df.columns if c not in meta_cols]
-    before = len(df)
-    df = df.dropna(subset=feature_cols, how="any")
-    logger.info("Gold: %d linhas removidas por nulos de janela inicial.", before - len(df))
 
-    # Divisao temporal (sem embaralhamento para preservar ordem cronologica)
-    n = len(df)
-    train_end = int(n * TRAIN_RATIO)
-    val_end   = int(n * (TRAIN_RATIO + VAL_RATIO))
+    # ------------------------------------------------------------------
+    # PASSO 1: Feature engineering por poco -> parquets temporarios
+    # Cada poco e processado e liberado imediatamente (pico: 1 poco na RAM)
+    # ------------------------------------------------------------------
+    temp_dir = GOLD_DIR / "_temp_features"
+    temp_dir.mkdir(parents=True, exist_ok=True)
 
-    train_mask = df.index < train_end
+    wells = sorted(df_silver["ID_Poco"].unique()) if "ID_Poco" in df_silver.columns else [None]
+    logger.info("Gold - Passo 1: features em %d pocos -> parquets temporarios...", len(wells))
 
-    logger.info("Gold: normalizando features (stats do treino)...")
-    df, scaler_stats = normalize_features(df, feature_cols, train_mask)
+    total_rows = 0
+    feature_cols: list = []
 
-    # Salva as stats de normalizacao para uso na inferencia futura
-    stats_path = GOLD_DIR / "scaler_stats.json"
+    for i, well in enumerate(wells, 1):
+        if well is not None:
+            df_w = df_silver[df_silver["ID_Poco"] == well].copy()
+        else:
+            df_w = df_silver.copy()
+
+        df_w = create_rolling_features(df_w)
+        df_w = create_lag_features(df_w)
+        df_w = create_delta_features(df_w)
+
+        # Remove NaN de janelas iniciais
+        fcols = [c for c in df_w.columns if c not in META_COLS]
+        df_w = df_w.dropna(subset=fcols, how="any")
+
+        if df_w.empty:
+            del df_w
+            continue
+
+        if not feature_cols:
+            feature_cols = fcols  # captura lista de features do primeiro poco
+
+        temp_path = temp_dir / f"{i:05d}.parquet"
+        df_w.to_parquet(temp_path, index=False)
+        total_rows += len(df_w)
+        del df_w
+        gc.collect()
+
+        if i % 10 == 0 or i == len(wells):
+            logger.info("  %d/%d pocos escritos (%d linhas acumuladas)", i, len(wells), total_rows)
+
+    # Libera df_silver completamente
+    del df_silver
+    gc.collect()
+
+    if total_rows == 0 or not feature_cols:
+        logger.error("Nenhuma linha valida apos feature engineering.")
+        return pd.DataFrame()
+
+    logger.info("Gold - Passo 1 concluido: %d linhas totais, %d features.", total_rows, len(feature_cols))
+
+    # ------------------------------------------------------------------
+    # PASSO 2: Stats de normalizacao (treino) via acumulacao sum/sumsq
+    # Memoria constante: apenas 3 dicts de floats, independente do volume
+    # ------------------------------------------------------------------
+    train_end = int(total_rows * TRAIN_RATIO)
+    val_end   = int(total_rows * (TRAIN_RATIO + VAL_RATIO))
+
+    logger.info("Gold - Passo 2: computando stats de normalizacao do treino (%d linhas)...", train_end)
+
+    f_sum   = {col: 0.0 for col in feature_cols}
+    f_sum2  = {col: 0.0 for col in feature_cols}
+    f_count = {col: 0   for col in feature_cols}
+    seen = 0
+
+    for pf in sorted(temp_dir.glob("*.parquet")):
+        if seen >= train_end:
+            break
+        df_w = pd.read_parquet(pf, columns=feature_cols)
+        take = min(len(df_w), train_end - seen)
+        df_t = df_w.iloc[:take]
+        for col in feature_cols:
+            if col in df_t.columns:
+                vals = df_t[col].to_numpy(dtype="float64", na_value=np.nan)
+                vals = vals[~np.isnan(vals)]
+                f_sum[col]   += float(vals.sum())
+                f_sum2[col]  += float((vals ** 2).sum())
+                f_count[col] += len(vals)
+        seen += take
+        del df_w, df_t
+        gc.collect()
+
+    scaler_stats: dict = {}
+    for col in feature_cols:
+        n = f_count[col] or 1
+        mean_val = f_sum[col] / n
+        var_val  = max(f_sum2[col] / n - mean_val ** 2, 0.0)
+        std_val  = var_val ** 0.5 if var_val > 0 else 1.0
+        scaler_stats[col] = {"mean": round(mean_val, 8), "std": round(std_val, 8)}
+
     GOLD_DIR.mkdir(parents=True, exist_ok=True)
+    stats_path = GOLD_DIR / "scaler_stats.json"
     with open(stats_path, "w", encoding="utf-8") as fh:
         json.dump(scaler_stats, fh, indent=2)
-    logger.info("Scaler stats salvas em: %s", stats_path)
+    logger.info("Scaler stats salvas: %s", stats_path)
 
-    # Seleciona apenas colunas normalizadas + metadados
-    norm_cols = [c for c in df.columns if c.endswith("_norm")]
-    final_cols = [TIMESTAMP_COLUMN, "ID_Poco", TARGET_COLUMN, "nome_evento"] + norm_cols
-    final_cols = [c for c in final_cols if c in df.columns]
-    df_final = df[final_cols].copy()
-    df_final["gold_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    # ------------------------------------------------------------------
+    # PASSO 3: Normalizacao por poco + escrita incremental (pyarrow)
+    # Pico de RAM = 1 poco normalizado; saida escrita sem concat global
+    # ------------------------------------------------------------------
+    logger.info("Gold - Passo 3: normalizando e escrevendo train/val/test...")
 
-    # Divisao e escrita
-    df_train = df_final.iloc[:train_end]
-    df_val   = df_final.iloc[train_end:val_end]
-    df_test  = df_final.iloc[val_end:]
+    keep_meta = [c for c in [TIMESTAMP_COLUMN, "ID_Poco", TARGET_COLUMN, "nome_evento"]
+                 if c in pd.read_parquet(sorted(temp_dir.glob("*.parquet"))[0], nrows=0 if False else None).columns]
 
-    save_parquet(df_train, GOLD_DIR / "train.parquet", "train.parquet")
-    save_parquet(df_val,   GOLD_DIR / "val.parquet",   "val.parquet")
-    save_parquet(df_test,  GOLD_DIR / "test.parquet",  "test.parquet")
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    train_writer = val_writer = test_writer = None
+    schema = None
+    written_rows = {"train": 0, "val": 0, "test": 0}
+    cumulative = 0
+
+    for pf in sorted(temp_dir.glob("*.parquet")):
+        df_w = pd.read_parquet(pf)
+
+        # Aplica normalizacao in-place
+        rename_map = {}
+        for col in feature_cols:
+            if col in df_w.columns:
+                s = scaler_stats[col]
+                df_w[col] = (df_w[col] - s["mean"]) / s["std"]
+                rename_map[col] = f"{col}_norm"
+        df_w = df_w.rename(columns=rename_map)
+
+        norm_cols = [c for c in df_w.columns if c.endswith("_norm")]
+        final_cols = [c for c in keep_meta if c in df_w.columns] + norm_cols
+        df_w = df_w[final_cols].copy()
+        df_w["gold_at"] = now_str
+
+        # Determina split por posicao global
+        well_len = len(df_w)
+        well_start = cumulative
+        well_end   = cumulative + well_len
+
+        # Parcelas de treino/val/test dentro deste poco
+        t_start = max(0,         train_end - well_start)
+        v_start = max(0,         val_end   - well_start)
+
+        df_train_w = df_w.iloc[: min(t_start, well_len)]
+        df_val_w   = df_w.iloc[t_start : min(v_start, well_len)]
+        df_test_w  = df_w.iloc[v_start :]
+
+        # Escreve incrementalmente com pyarrow
+        for split_df, split_name in [
+            (df_train_w, "train"), (df_val_w, "val"), (df_test_w, "test")
+        ]:
+            if split_df.empty:
+                continue
+            table = pa.Table.from_pandas(split_df, preserve_index=False)
+            if split_name == "train":
+                if train_writer is None:
+                    train_writer = pq.ParquetWriter(GOLD_DIR / "train.parquet", table.schema)
+                train_writer.write_table(table)
+            elif split_name == "val":
+                if val_writer is None:
+                    val_writer = pq.ParquetWriter(GOLD_DIR / "val.parquet", table.schema)
+                val_writer.write_table(table)
+            else:
+                if test_writer is None:
+                    test_writer = pq.ParquetWriter(GOLD_DIR / "test.parquet", table.schema)
+                test_writer.write_table(table)
+            written_rows[split_name] += len(split_df)
+
+        cumulative += well_len
+        del df_w, df_train_w, df_val_w, df_test_w
+        gc.collect()
+
+    # Fecha writers
+    for w in [train_writer, val_writer, test_writer]:
+        if w is not None:
+            w.close()
+
+    # Remove arquivos temporarios
+    for pf in temp_dir.glob("*.parquet"):
+        pf.unlink()
+    temp_dir.rmdir()
 
     logger.info("Gold: divisao temporal:")
-    logger.info("  Treino:    %d linhas (%.0f%%)", len(df_train), TRAIN_RATIO * 100)
-    logger.info("  Validacao: %d linhas (%.0f%%)", len(df_val),   VAL_RATIO * 100)
-    logger.info("  Teste:     %d linhas (%.0f%%)", len(df_test),  TEST_RATIO * 100)
-    logger.info("  Features:  %d colunas", len(norm_cols))
+    logger.info("  Treino:    %d linhas (%.0f%%)", written_rows["train"], TRAIN_RATIO * 100)
+    logger.info("  Validacao: %d linhas (%.0f%%)", written_rows["val"],   VAL_RATIO   * 100)
+    logger.info("  Teste:     %d linhas (%.0f%%)", written_rows["test"],  TEST_RATIO  * 100)
+    logger.info("  Features:  %d colunas normalizadas", len(feature_cols))
 
-    print_class_distribution(df_train, "Gold - Treino")
-    print_class_distribution(df_val,   "Gold - Validacao")
-    print_class_distribution(df_test,  "Gold - Teste")
+    # Retorna amostra do treino para compatibilidade com chamadas downstream
+    sample = pd.read_parquet(GOLD_DIR / "train.parquet").head(1000)
+    return sample
 
-    return df_final
+
+# ---------------------------------------------------------------------------
+# GOLD - Funcoes por-poco (dynamic task mapping no Airflow)
+# ---------------------------------------------------------------------------
+
+def list_gold_wells() -> list:
+    """Lista IDs de pocos disponiveis na camada Silver.
+    Leitura eficiente: carrega apenas a coluna ID_Poco via pyarrow.
+    Retorna lista ordenada de strings para uso no XCom do Airflow.
+    """
+    import pyarrow.parquet as pq
+
+    files = sorted(SILVER_DIR.glob("*.parquet"))
+    if not files:
+        logger.warning("list_gold_wells: nenhum parquet em %s", SILVER_DIR)
+        return []
+
+    wells: set = set()
+    for f in files:
+        try:
+            tbl = pq.read_table(str(f), columns=["ID_Poco"])
+            wells.update(
+                str(v) for v in tbl["ID_Poco"].to_pylist() if v is not None
+            )
+        except Exception as exc:
+            logger.error("Erro ao ler %s: %s", f.name, exc)
+
+    result = sorted(wells)
+    logger.info("list_gold_wells: %d pocos encontrados.", len(result))
+    return result
+
+
+def load_well_from_silver(well_id: str) -> pd.DataFrame:
+    """Carrega APENAS as linhas de um poco da Silver usando filtro pyarrow.
+    O predicate pushdown do pyarrow le so as linhas necessarias do disco,
+    evitando carregar os 7M+ de linhas do arquivo completo na RAM.
+    """
+    import pyarrow.parquet as pq
+
+    files = sorted(SILVER_DIR.glob("*.parquet"))
+    if not files:
+        return pd.DataFrame()
+
+    dfs = []
+    for f in files:
+        try:
+            tbl = pq.read_table(str(f), filters=[("ID_Poco", "=", well_id)])
+            if tbl.num_rows > 0:
+                dfs.append(tbl.to_pandas())
+        except Exception as exc:
+            logger.error("load_well_from_silver: erro em %s: %s", f.name, exc)
+
+    if not dfs:
+        return pd.DataFrame()
+
+    df = pd.concat(dfs, ignore_index=True)
+
+    # Converte colunas de sensor para float32 (metade da RAM vs float64)
+    for col in SENSOR_COLUMNS:
+        if col in df.columns:
+            df[col] = df[col].astype("float32")
+
+    logger.info("Poco %s: %d linhas carregadas da Silver (sensores em float32).", well_id, len(df))
+    return df
+
+
+def run_gold_process_well(well_id: str) -> int:
+    """Feature engineering para um unico poco.
+    Carrega apenas as linhas do poco (pyarrow filter), aplica rolling/lag/delta
+    e salva em data/gold/_temp_features/well_<id>.parquet.
+    Libera a RAM ao final via gc.collect().
+    Retorna o numero de linhas escritas (0 se o poco estiver vazio).
+    """
+    import gc
+
+    logger.info("=" * 50)
+    logger.info("Gold-Poco [%s] - iniciando", well_id)
+
+    META_COLS = {TIMESTAMP_COLUMN, "ID_Poco", TARGET_COLUMN,
+                 "nome_evento", "bronze_at", "silver_at"}
+
+    # Carrega apenas este poco (eficiente em memoria via pyarrow filter)
+    df = load_well_from_silver(well_id)
+    if df.empty:
+        logger.warning("Gold-Poco [%s]: sem dados. Ignorando.", well_id)
+        return 0
+
+    # Ordena por timestamp antes das janelas de rolling
+    if TIMESTAMP_COLUMN in df.columns:
+        df = df.sort_values(TIMESTAMP_COLUMN).reset_index(drop=True)
+
+    # Feature engineering (funcoes ja otimizadas com pd.concat)
+    df = create_rolling_features(df)
+    df = create_lag_features(df)
+    df = create_delta_features(df)
+
+    # Preenche NaN introduzidos por bordas de janelas rolling/lag/delta com 0.
+    # (how="any" sobre 128+ colunas descartava todas as linhas — OOM silencioso)
+    fcols = [c for c in df.columns if c not in META_COLS]
+    nan_before = int(df[fcols].isna().sum().sum())
+    if nan_before > 0:
+        df[fcols] = df[fcols].fillna(np.float32(0.0))
+        logger.info("Gold-Poco [%s]: %d NaN preenchidos com 0 nas features.", well_id, nan_before)
+
+    # Descarta apenas linhas onde TODOS os sensores originais sao NaN (dados ausentes)
+    sensor_cols = [c for c in SENSOR_COLUMNS if c in df.columns]
+    before = len(df)
+    if sensor_cols:
+        df = df.dropna(subset=sensor_cols, how="all")
+    dropped = before - len(df)
+    if dropped > 0:
+        logger.info("Gold-Poco [%s]: %d linhas removidas (todos sensores NaN).", well_id, dropped)
+
+    if df.empty:
+        logger.warning("Gold-Poco [%s]: vazio apos dropna.", well_id)
+        return 0
+
+    # Salva parquet temporario
+    temp_dir = GOLD_DIR / "_temp_features"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    safe_id = (str(well_id)
+               .replace("/", "_").replace("\\", "_")
+               .replace(" ", "_").replace(":", "_"))
+    temp_path = temp_dir / f"well_{safe_id}.parquet"
+    df.to_parquet(temp_path, index=False)
+
+    n = len(df)
+    logger.info("Gold-Poco [%s]: %d linhas -> %s", well_id, n, temp_path.name)
+    del df
+    gc.collect()
+    return n
+
+
+def run_gold_finalize() -> pd.DataFrame:
+    """Finaliza a camada Gold: calcula stats de normalizacao e escreve os splits.
+
+    Le os parquets temporarios gerados por run_gold_process_well(), calcula as
+    estatisticas Z-score globais sobre o conjunto de treino via acumulacao
+    sum/sumsq (memoria constante), normaliza cada poco e escreve
+    train.parquet / val.parquet / test.parquet incrementalmente via pyarrow.
+
+    Remove os arquivos temporarios ao final.
+    """
+    import gc
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    logger.info("=" * 60)
+    logger.info("Gold-Final - iniciando")
+    logger.info("=" * 60)
+
+    META_COLS = {TIMESTAMP_COLUMN, "ID_Poco", TARGET_COLUMN,
+                 "nome_evento", "bronze_at", "silver_at", "gold_at"}
+
+    temp_dir = GOLD_DIR / "_temp_features"
+    temp_files = sorted(temp_dir.glob("well_*.parquet"))
+
+    if not temp_files:
+        logger.error("Gold-Final: nenhum parquet temporario em %s", temp_dir)
+        return pd.DataFrame()
+
+    logger.info("Gold-Final: %d arquivos temporarios encontrados.", len(temp_files))
+
+    # Detecta feature_cols e keep_meta a partir do primeiro arquivo
+    schema_pa = pq.read_schema(str(temp_files[0]))
+    all_cols = schema_pa.names
+    feature_cols = [c for c in all_cols if c not in META_COLS]
+    keep_meta = [c for c in [TIMESTAMP_COLUMN, "ID_Poco", TARGET_COLUMN, "nome_evento"]
+                 if c in all_cols]
+
+    # Conta total de linhas para determinar split (sem carregar dados)
+    total_rows = sum(pq.read_metadata(str(f)).num_rows for f in temp_files)
+    train_end = int(total_rows * TRAIN_RATIO)
+    val_end   = int(total_rows * (TRAIN_RATIO + VAL_RATIO))
+
+    logger.info("Gold-Final: %d linhas | treino=%d | val=%d | teste=%d",
+                total_rows, train_end, val_end - train_end, total_rows - val_end)
+    logger.info("Gold-Final: %d features a normalizar.", len(feature_cols))
+
+    # ------------------------------------------------------------------
+    # PASSO A: Stats Z-score via sum/sumsq (memoria constante)
+    # ------------------------------------------------------------------
+    logger.info("Gold-Final: Passo A - computando stats de normalizacao...")
+
+    f_sum   = {col: 0.0 for col in feature_cols}
+    f_sum2  = {col: 0.0 for col in feature_cols}
+    f_count = {col: 0   for col in feature_cols}
+    seen = 0
+
+    for pf in temp_files:
+        if seen >= train_end:
+            break
+        df_w = pd.read_parquet(pf, columns=feature_cols)
+        take = min(len(df_w), train_end - seen)
+        df_t = df_w.iloc[:take]
+        for col in feature_cols:
+            if col in df_t.columns:
+                vals = df_t[col].to_numpy(dtype="float64", na_value=np.nan)
+                vals = vals[~np.isnan(vals)]
+                f_sum[col]   += float(vals.sum())
+                f_sum2[col]  += float((vals ** 2).sum())
+                f_count[col] += len(vals)
+        seen += take
+        del df_w, df_t
+        gc.collect()
+
+    scaler_stats: dict = {}
+    for col in feature_cols:
+        n = f_count[col] or 1
+        mean_v = f_sum[col] / n
+        var_v  = max(f_sum2[col] / n - mean_v ** 2, 0.0)
+        std_v  = var_v ** 0.5 if var_v > 0 else 1.0
+        scaler_stats[col] = {"mean": round(mean_v, 8), "std": round(std_v, 8)}
+
+    GOLD_DIR.mkdir(parents=True, exist_ok=True)
+    stats_path = GOLD_DIR / "scaler_stats.json"
+    with open(stats_path, "w", encoding="utf-8") as fh:
+        json.dump(scaler_stats, fh, indent=2)
+    logger.info("Scaler stats salvas: %s", stats_path)
+
+    # ------------------------------------------------------------------
+    # PASSO B: Normalizacao + escrita incremental (pyarrow)
+    # ------------------------------------------------------------------
+    logger.info("Gold-Final: Passo B - normalizando e escrevendo parquets...")
+
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    train_writer = val_writer = test_writer = None
+    written_rows = {"train": 0, "val": 0, "test": 0}
+    cumulative = 0
+
+    for pf in temp_files:
+        df_w = pd.read_parquet(pf)
+
+        # Normaliza cada feature in-place e renomeia para _norm
+        rename_map = {}
+        for col in feature_cols:
+            if col in df_w.columns:
+                s = scaler_stats[col]
+                df_w[col] = (df_w[col] - s["mean"]) / s["std"]
+                rename_map[col] = f"{col}_norm"
+        df_w = df_w.rename(columns=rename_map)
+
+        norm_cols  = [c for c in df_w.columns if c.endswith("_norm")]
+        final_cols = [c for c in keep_meta if c in df_w.columns] + norm_cols
+        df_w = df_w[final_cols].copy()
+        df_w["gold_at"] = now_str
+
+        # Determina parcelas de treino/val/test dentro deste poco
+        well_len = len(df_w)
+        t_cut = max(0, train_end - cumulative)
+        v_cut = max(0, val_end   - cumulative)
+
+        splits = [
+            (df_w.iloc[:min(t_cut, well_len)],      "train"),
+            (df_w.iloc[t_cut:min(v_cut, well_len)], "val"),
+            (df_w.iloc[v_cut:],                     "test"),
+        ]
+
+        for split_df, split_name in splits:
+            if split_df.empty:
+                continue
+            tbl = pa.Table.from_pandas(split_df, preserve_index=False)
+            if split_name == "train":
+                if train_writer is None:
+                    train_writer = pq.ParquetWriter(GOLD_DIR / "train.parquet", tbl.schema)
+                train_writer.write_table(tbl)
+            elif split_name == "val":
+                if val_writer is None:
+                    val_writer = pq.ParquetWriter(GOLD_DIR / "val.parquet", tbl.schema)
+                val_writer.write_table(tbl)
+            else:
+                if test_writer is None:
+                    test_writer = pq.ParquetWriter(GOLD_DIR / "test.parquet", tbl.schema)
+                test_writer.write_table(tbl)
+            written_rows[split_name] += len(split_df)
+
+        cumulative += well_len
+        del df_w
+        gc.collect()
+
+    # Fecha writers
+    for w in [train_writer, val_writer, test_writer]:
+        if w is not None:
+            w.close()
+
+    # Remove arquivos temporarios
+    for pf in temp_files:
+        try:
+            pf.unlink()
+        except Exception:
+            pass
+    try:
+        temp_dir.rmdir()
+    except Exception:
+        pass
+
+    logger.info("Gold-Final concluido:")
+    logger.info("  Treino:    %d linhas (%.0f%%)", written_rows["train"], TRAIN_RATIO * 100)
+    logger.info("  Validacao: %d linhas (%.0f%%)", written_rows["val"],   VAL_RATIO   * 100)
+    logger.info("  Teste:     %d linhas (%.0f%%)", written_rows["test"],  TEST_RATIO  * 100)
+    logger.info("  Features:  %d colunas normalizadas", len(feature_cols))
+
+    # Retorna amostra do treino para compatibilidade
+    train_path = GOLD_DIR / "train.parquet"
+    if train_path.exists():
+        return pd.read_parquet(train_path).head(1000)
+    return pd.DataFrame()
 
 
 # ---------------------------------------------------------------------------
@@ -515,16 +992,60 @@ def run_pipeline(step: str = "all", verbose: bool = False) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="ETL Bronze/Silver/Gold - Dataset 3W")
+    parser = argparse.ArgumentParser(
+        description="ETL Bronze/Silver/Gold - Dataset 3W",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Exemplos:
+  python etl_bronze_silver_gold.py --step all
+  python etl_bronze_silver_gold.py --step bronze
+  python etl_bronze_silver_gold.py --step gold_list
+  python etl_bronze_silver_gold.py --step gold_poco --well WELL_00001
+  python etl_bronze_silver_gold.py --step gold_final
+        """,
+    )
     parser.add_argument(
         "--step",
-        choices=["all", "bronze", "silver", "gold"],
+        choices=["all", "bronze", "silver", "gold",
+                 "gold_list", "gold_poco", "gold_final"],
         default="all",
-        help="Etapa a executar (default: all)",
+        help=(
+            "Etapa a executar. "
+            "gold_list: lista pocos da Silver (JSON). "
+            "gold_poco: feature engineering de um poco (requer --well). "
+            "gold_final: normaliza e escreve train/val/test."
+        ),
+    )
+    parser.add_argument(
+        "--well",
+        type=str,
+        default=None,
+        help="ID do poco para --step gold_poco (ex: WELL_00001)",
     )
     parser.add_argument(
         "--verbose", action="store_true",
         help="Nivel de log DEBUG",
     )
     args = parser.parse_args()
-    run_pipeline(step=args.step, verbose=args.verbose)
+
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+
+    setup_directories()
+
+    if args.step == "gold_list":
+        # Imprime lista JSON de pocos no stdout (lida pelo DAG via subprocess)
+        wells = list_gold_wells()
+        print(json.dumps(wells))
+
+    elif args.step == "gold_poco":
+        if not args.well:
+            parser.error("--well e obrigatorio quando --step=gold_poco")
+        n = run_gold_process_well(args.well)
+        sys.exit(0 if n >= 0 else 1)
+
+    elif args.step == "gold_final":
+        run_gold_finalize()
+
+    else:
+        run_pipeline(step=args.step, verbose=args.verbose)

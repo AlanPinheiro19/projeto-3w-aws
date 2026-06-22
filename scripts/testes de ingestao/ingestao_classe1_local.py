@@ -11,6 +11,7 @@ Version: 2.0
 import requests
 import pandas as pd
 import numpy as np
+import os
 from pathlib import Path
 from io import BytesIO
 import time
@@ -23,7 +24,7 @@ from typing import List, Dict, Tuple, Optional
 # -----------------------------------------------------------------------------
 
 CLASSE = "1"
-BASE_DIR = Path("D:/Alan/Alan/Pos GRADUAÇÂO USP/eEDB-007 - Trabalho de Conclusão/projeto-3w-aws/data")
+BASE_DIR = Path(os.environ.get("PROJECT_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"
 LOCAL_DIR = BASE_DIR / f"classe{CLASSE}_wells_only"
 PROCESSED_DIR = BASE_DIR / f"classe{CLASSE}_processed"  # Diretorio para arquivos processados
 API_URL = f"https://api.github.com/repos/petrobras/3W/contents/dataset/{CLASSE}"

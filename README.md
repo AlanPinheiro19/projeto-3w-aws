@@ -77,4 +77,120 @@ projeto-3w-aws/
 ├── config/
 │   └── spark_config.py          # Caminhos, credenciais via env var, SparkSession lazy
 ├── dags/
-│   ├── dag_etl_3w_pipeline.py   # ET
+│   ├── dag_etl_3w_pipeline.py   # ETL Bronze→Silver→Gold
+│   ├── dag_gold_rebuild.py      # Re-processa apenas a camada Gold
+│   └── dag_ml_training.py       # RF+XGB+LGB paralelo → Tuning → SHAP
+├── data/
+│   ├── raw/                     # Parquet por classe (gitignored)
+│   ├── bronze/                  # Schema padronizado (gitignored)
+│   ├── silver/                  # Dados validados (gitignored)
+│   └── gold/                    # Features + splits (gitignored)
+├── docker/
+│   └── init_db.sql              # Schema PostgreSQL
+├── models/                      # Métricas JSON + gráficos (joblib gitignored)
+├── notebooks/
+│   ├── eda_3w.ipynb             # Análise Exploratória — Figuras 1–9
+│   └── dashboard_3w.ipynb       # Dashboard interativo
+├── scripts/
+│   ├── ingestao_unificada.py    # Download GitHub API (substitui 10 scripts por classe)
+│   ├── etl_bronze_silver_gold.py
+│   ├── train_rf_baseline.py
+│   ├── train_xgb_baseline.py
+│   ├── train_lgb_baseline.py
+│   ├── tune_thresholds.py
+│   └── shap_analysis.py
+├── terraform/                   # Infraestrutura AWS (deploy pendente)
+├── .env.example                 # Template de variáveis de ambiente
+├── .gitignore
+├── docker-compose.yml
+└── requirements.txt
+```
+
+---
+
+## Como Executar
+
+### 1. Pré-requisitos
+
+- Docker Desktop instalado e em execução
+- Python 3.9+
+- Token GitHub (recomendado para evitar rate limit de 60 req/hora):  
+  gere em https://github.com/settings/tokens com escopo `public_repo`
+
+### 2. Configurar variáveis de ambiente
+
+```bash
+cp .env.example .env
+# Edite .env e defina GITHUB_TOKEN, senhas PostgreSQL etc.
+```
+
+### 3. Subir a stack Docker
+
+```bash
+docker compose up -d
+# Airflow UI: http://localhost:8080  (admin / admin)
+# Jupyter:    http://localhost:8888
+# MinIO:      http://localhost:9000  (minioadmin / minioadmin)
+# pgAdmin:    http://localhost:5050
+```
+
+### 4. Instalar dependências Python (fora do container)
+
+```bash
+pip install -r requirements.txt
+```
+
+### 5. Executar o pipeline
+
+**Via Airflow (recomendado):**
+```
+Airflow UI → DAGs → dag_etl_3w_pipeline → Trigger DAG
+Airflow UI → DAGs → dag_ml_training     → Trigger DAG
+```
+
+**Via scripts diretos:**
+```bash
+# Ingestão
+python scripts/ingestao_unificada.py --classes 0 1 2 4 6 7 --all-wells
+
+# ETL completo
+python scripts/etl_bronze_silver_gold.py --step all
+
+# Treinamento
+python scripts/train_lgb_baseline.py
+python scripts/tune_thresholds.py
+python scripts/shap_analysis.py
+```
+
+---
+
+## Segurança
+
+- `GITHUB_TOKEN`, senhas PostgreSQL e chaves MinIO: **sempre via variáveis de ambiente**, nunca hardcoded
+- `.env` real está no `.gitignore` — use `.env.example` como template
+- Modelos serializados (`*.joblib`) estão no `.gitignore` — use Git LFS se necessário versionar
+
+---
+
+## Classes de Eventos — Escopo do Projeto
+
+| Classe | Evento | Presente nos 3 poços? |
+|--------|--------|-----------------------|
+| 0 | Normal | ✅ 334 arquivos |
+| 1 | Abrupt Increase of BSW | ✅ 3 arquivos |
+| 2 | Spurious Closure of DHSV | ✅ 1 arquivo |
+| 3 | Severe Slugging | ❌ Ausente nos poços 00002/00004/00006 |
+| 4 | Flow Instability | ✅ 155 arquivos |
+| 5 | Rapid Productivity Loss | ❌ Ausente nos poços 00002/00004/00006 |
+| 6 | Quick Restriction in PCK | ✅ 6 arquivos |
+| 7 | Scaling in PCK | ✅ 2 arquivos |
+| 8 | Hydrate in Production Line | ❌ Ausente nos poços 00002/00004/00006 |
+
+As classes 3, 5 e 8 não ocorrem nos três poços selecionados. A expansão para outros poços é listada como trabalho futuro.
+
+---
+
+## Referência
+
+PETROBRAS. **Dataset 3W** — Timely detections for more proactive and effective actions in offshore oil wells.  
+Disponível em: https://github.com/petrobras/3W | Versão: 1.70.0 (abr/2026)

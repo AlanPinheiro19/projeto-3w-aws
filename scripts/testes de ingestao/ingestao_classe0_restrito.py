@@ -3,6 +3,7 @@ Script de Ingestao - Dataset 3W Petrobras (Classe 0)
 Versao para ambiente academico com permissoes restritas (voclabs)
 """
 
+import os
 import sys
 import logging
 import argparse

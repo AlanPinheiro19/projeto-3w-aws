@@ -6,6 +6,7 @@ Descricao: Realiza o download dos dados da classe 0 (operacao normal)
            Utiliza streaming em memoria para evitar uso de disco local.
 """
 
+import os
 import sys
 import logging
 import argparse

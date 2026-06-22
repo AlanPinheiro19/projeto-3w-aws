@@ -26,4 +26,19 @@ credentials.json
 aws-keys.json
 terraform/*.tfvars
 terraform/.terraform/
-terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+
+# Logs de containers
+logs/
+
+# Dados gerados localmente (volume Docker)
+data/processed/all_classes_combined.*
+
+# Ambiente virtual
+venv/
+env/
+.venv/
+
+# VS Code (opcional)
+.vscode/

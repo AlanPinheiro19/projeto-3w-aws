@@ -8,6 +8,32 @@ Autor: Alan Pinheiro da Silva | 2026
 
 ---
 
+<!-- Language & Platform -->
+![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat&logo=python&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-AWS-7B42BC?style=flat&logo=terraform&logoColor=white)
+
+<!-- Data Engineering -->
+![Apache Airflow](https://img.shields.io/badge/Apache%20Airflow-2.9.2-017CEE?style=flat&logo=apacheairflow&logoColor=white)
+![AWS Glue](https://img.shields.io/badge/AWS%20Glue-4.0-FF9900?style=flat&logo=amazonaws&logoColor=white)
+![PySpark](https://img.shields.io/badge/PySpark-ETL-E25A1C?style=flat&logo=apachespark&logoColor=white)
+![MinIO](https://img.shields.io/badge/MinIO-S3%20Compatible-C72E49?style=flat&logo=minio&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=flat&logo=postgresql&logoColor=white)
+
+<!-- Machine Learning -->
+![LightGBM](https://img.shields.io/badge/LightGBM-F1%2096.2%25-brightgreen?style=flat)
+![XGBoost](https://img.shields.io/badge/XGBoost-F1%2095.7%25-green?style=flat)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-RF%2091.1%25-F7931E?style=flat&logo=scikitlearn&logoColor=white)
+![SHAP](https://img.shields.io/badge/SHAP-Interpretability-blueviolet?style=flat)
+![Optuna](https://img.shields.io/badge/Optuna-Hyperparameter%20Tuning-blue?style=flat)
+
+<!-- Domain -->
+![Dataset](https://img.shields.io/badge/Dataset-Petrobras%203W-black?style=flat)
+![Domain](https://img.shields.io/badge/Domain-Offshore%20Oil%20Wells-0077B6?style=flat)
+![Architecture](https://img.shields.io/badge/Architecture-Medallion%20Bronze%2FSilver%2FGold-gold?style=flat)
+
+---
+
 ## Visão Geral
 
 Este projeto desenvolve um sistema automatizado de detecção e classificação de eventos indesejáveis em poços de petróleo offshore, utilizando o dataset público [3W da Petrobras](https://github.com/petrobras/3W) como base de dados. O pipeline processa séries temporais de 8 sensores de processo e classifica 6 classes de eventos com F1-macro de **96,2%** (LightGBM).

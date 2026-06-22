@@ -14,15 +14,16 @@ datasets/
 __pycache__/
 *.pyc
 
+# Modelos serializados (arquivos grandes — use Git LFS se precisar versionar)
+models/*.joblib
+models/*.pkl
+models/*.pt
+models/*.h5
+
 # Credenciais (NUNCA suba!)
 .env
 credentials.json
 aws-keys.json
-
-# Ambiente virtual
-venv/
-env/
-.venv/
-
-# VS Code (opcional)
-.vscode/
+terraform/*.tfvars
+terraform/.terraform/
+terraform/

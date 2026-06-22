@@ -1,7 +1,7 @@
 """
 Script: ingestao_classe0_wells_only.py
 Descricao: Ingestion of Class 0 Parquet files from Petrobras 3W dataset.
-            Filters only files starting with 'WELL_00002' (case-insensitive).
+            Filters only files starting with 'WELL-00002' (case-insensitive).
 Author: Alan Pinheiro da Silva
 Date: 2025-01-08
 """
@@ -19,7 +19,7 @@ from typing import List, Dict, Tuple
 # -----------------------------------------------------------------------------
 
 CLASSE = "0"
-BASE_DIR = Path("C:/projeto-3w-aws/data")
+BASE_DIR = Path("D:/Alan/Alan/Pos GRADUAÇÂO USP/eEDB-007 - Trabalho de Conclusão/projeto-3w-aws/data")
 LOCAL_DIR = BASE_DIR / f"classe{CLASSE}_wells_02_only"
 API_URL = f"https://api.github.com/repos/petrobras/3W/contents/dataset/{CLASSE}"
 

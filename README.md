@@ -1,62 +1,80 @@
 # projeto-3w-aws
-Detecção de Anomalias em Sensores de Poços Submarinos com Machine Learning
 
-# Visão Geral do Projeto
-Este repositório documenta o Trabalho de Conclusão de Curso (TCC) apresentado ao curso de Especialização em Engenharia de Dados e Big Data, cujo objetivo foi detectar anomalias operacionais em sensores de poços submarinos utilizando técnicas de Machine Learning em ambiente de nuvem AWS.
+**Sistema para Detecção e Classificação de Eventos Indesejáveis em Poços de Petróleo Offshore**
 
-A abordagem adotada simula um pipeline completo de dados em larga escala, desde a ingestão até a predição de eventos indevidos, com foco na redução de riscos operacionais, ambientais e dos custos associados a intervenções corretivas em poços offshore.
+Trabalho de Conclusão de Curso (TCC) — Especialização em Engenharia de Dados e Big Data  
+USP Escola Politécnica — Programa eEDB-007  
+Autor: Alan Pinheiro da Silva | 2026
 
-# Abordagem Técnica e Arquitetura
-O projeto foi estruturado seguindo boas práticas de engenharia de dados e metodologias de projetos de grandes volumes de dados, com os seguintes componentes principais:
+---
 
-# 1. Ingestão de Dados
-Coleta simulada ou real de dados provenientes de sensores instalados em poços submarinos (pressão, temperatura, vazão, vibração, etc.)
+## Visão Geral
 
-Utilização de serviços AWS para captura e armazenamento escalável
+Este projeto desenvolve um sistema automatizado de detecção e classificação de eventos indesejáveis em poços de petróleo offshore, utilizando o dataset público [3W da Petrobras](https://github.com/petrobras/3W) como base de dados. O pipeline processa séries temporais de 8 sensores de processo e classifica 6 classes de eventos com F1-macro de **96,2%** (LightGBM).
 
-# 2. Processamento e Classificação
-Limpeza, transformação e enriquecimento dos dados brutos
+**Escopo de dados:** poços WELL-00002, WELL-00004 e WELL-00006 — 7,5 milhões de registros, 6 classes de eventos.
 
-Classificação inicial de eventos operacionais normais e anômalos
+---
 
-# 3. Modelagem com Machine Learning
-Desenvolvimento e treinamento de modelos de detecção de anomalias
+## Resultados dos Modelos
 
-Algoritmos explorados: Isolation Forest, Random Forest, XGBoost 
+| Modelo | F1-Macro Teste | Acurácia Teste | Observação |
+|--------|---------------|----------------|------------|
+| Random Forest | 91,1% | 99,6% | 150 árvores, class_weight=balanced |
+| XGBoost | 90,0% → 95,7%* | 99,3% | *após threshold tuning (+5,7pp) |
+| **LightGBM** ★ | **96,2%** | **99,9%** | Melhor modelo — recomendado para produção |
 
-# 4. Análise e Proposição
-Avaliação da acurácia dos modelos em identificar eventos operacionais indevidos
+Split estratificado por classe (70/15/15). O split temporal foi descartado pois excluía a classe 7 do treino (F1-macro RF caiu para 24,5%).
 
-Proposta de um framework preditivo para alerta precoce de anomalias
+---
 
-# Benefícios Esperados da Solução
-Redução de riscos operacionais – detecção antecipada de falhas ou comportamentos anômalos
+## Arquitetura do Pipeline
 
-Minimização de impactos ambientais – prevenção de vazamentos ou operações fora do controle
+```
+GitHub 3W API
+     │
+     ▼
+[INGESTÃO]  ingestao_unificada.py  →  data/raw/
+     │
+     ▼
+[BRONZE]    schema padronizado + campo bronze_at  →  data/bronze/
+     │
+     ▼
+[SILVER]    validação física + fill NaN + dedup  →  data/silver/
+     │
+     ▼
+[GOLD]      136 features + Z-Score + split  →  data/gold/{train,val,test}.parquet
+     │
+     ▼
+[ML]        RF + XGBoost + LightGBM → Threshold Tuning → SHAP
+```
 
-Diminuição de custos e tempo de correção – atuação preditiva em vez de reativa
+**Features Gold (136 total):**  
+Rolling statistics (média, std, min, max × janelas 5/10/30 × 8 sensores = 96) + Lag features (passos 1/3/5 × 8 = 24) + Delta (8) + Sensores brutos (8)
 
-Aplicabilidade em cenários reais de produção offshore
+---
 
+## Stack de Infraestrutura
 
-# Tecnologias e Serviços Utilizados
-Camada	Ferramentas / Serviços AWS
-Ingestão	AWS Kinesis, S3, Lambda
-Armazenamento	S3 (Data Lake), DynamoDB ou RDS
-Processamento	AWS Glue, EMR, Spark
-Machine Learning	SageMaker (ou scikit-learn / TensorFlow local)
-Orquestração	Step Functions, Airflow
-Visualização	QuickSight / Grafana
+| Camada | Tecnologia |
+|--------|-----------|
+| Processamento ETL | AWS Glue 4.0 (container Docker local) + PySpark |
+| Orquestração | Apache Airflow 2.9.2 (LocalExecutor + PostgreSQL) |
+| Armazenamento objetos | MinIO (emulador S3 local) |
+| Banco de metadados | PostgreSQL 15 |
+| Notebooks / EDA | Jupyter (scipy-notebook) |
+| ML | scikit-learn, XGBoost, LightGBM, SHAP, Optuna |
+| Infraestrutura nuvem | Terraform (AWS — deploy pendente) |
 
+Toda a stack local é orquestrada por `docker-compose.yml`.
 
-# Principais Aprendizados Consolidados
+---
 
-Ao longo do curso e deste TCC, foi possível aprender e aplicar na prática:
+## Estrutura do Repositório
 
-Conceitos fundamentais de computação em nuvem aplicados a dados massivos
-
-Pipelines completos de Big Data na AWS
-
-Estratégias de classificação e detecção de anomalias com Machine Learning
-
-Como integrar domínio de engenharia de petróleo com ciência de dados
+```
+projeto-3w-aws/
+├── config/
+│   └── spark_config.py          # Caminhos, credenciais via env var, SparkSession lazy
+├── dags/
+│   ├── dag_etl_3w_pipeline.py   # ET

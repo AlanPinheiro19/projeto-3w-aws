@@ -1,0 +1,194 @@
+# Stack local do projeto 3W Offshore Events
+# Servicos:
+#   glue-local  - AWS Glue 4.0 com Spark + Jupyter (http://localhost:8888)
+#   postgres    - PostgreSQL 15 para metadados e resultados (localhost:5432)
+#   pgadmin     - Interface web do PostgreSQL (http://localhost:5050)
+#   minio       - Emulador S3 local (http://localhost:9000 / console: 9001)
+#   mc-init     - Inicializa o bucket no MinIO na primeira execucao
+#
+# Inicio rapido:
+#   cp .env.example .env          # configure GITHUB_TOKEN se disponivel
+#   docker compose up -d          # sobe todos os servicos
+#   docker compose logs -f        # acompanha os logs
+#
+# Para rodar um script de ingestao dentro do container Glue:
+#   docker compose exec glue-local python scripts/ingestao_unificada.py --limit 5
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # AWS Glue Local - Spark + PySpark + Jupyter
+  # Documentacao: https://github.com/awslabs/aws-glue-libs
+  # ---------------------------------------------------------------------------
+  glue-local:
+    image: public.ecr.aws/glue/aws-glue-libs:glue_libs_4.0.0_image_01
+    container_name: glue-local-dev
+    ports:
+      - "4040:4040"    # Spark UI
+      - "18080:18080"  # Spark History Server
+      - "8888:8888"    # Jupyter Notebook
+    volumes:
+      - ./:/home/glue_user/workspace
+      - ./data:/home/glue_user/workspace/data
+    working_dir: /home/glue_user/workspace
+    environment:
+      - DISABLE_SSL=true
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      # Credenciais apontam para MinIO (S3 local) - nao sao credenciais reais
+      - AWS_ACCESS_KEY_ID=${MINIO_ACCESS_KEY:-minioadmin}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - AWS_DEFAULT_REGION=${AWS_REGION:-us-east-1}
+      # Variavel de projeto (usada pelo spark_config.py)
+      - PROJECT_DIR=/home/glue_user/workspace
+      - S3_BUCKET=${S3_BUCKET:-3w-offshore-events}
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      # PostgreSQL
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-well_data}
+      - POSTGRES_USER=${POSTGRES_USER:-glue_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-glue_password}
+      # GitHub (opcional, evita rate limit de 60 req/h)
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+    command: >
+      /bin/bash -c "
+        pip install --quiet requests pandas pyarrow s3fs boto3 &&
+        jupyter notebook
+          --ip=0.0.0.0
+          --port=8888
+          --allow-root
+          --no-browser
+          --NotebookApp.token=''
+          --NotebookApp.password=''
+          --NotebookApp.allow_origin='*'
+          --NotebookApp.notebook_dir=/home/glue_user/workspace
+      "
+    networks:
+      - 3w-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/api"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL - armazenamento de metadados e resultados de ML
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: 3w-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-glue_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-glue_password}
+      POSTGRES_DB: ${POSTGRES_DB:-well_data}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init_db.sql:/docker-entrypoint-initdb.d/01_init_db.sql:ro
+    networks:
+      - 3w-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-glue_user} -d ${POSTGRES_DB:-well_data}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # pgAdmin - interface web para o PostgreSQL
+  # Acesso: http://localhost:5050  |  admin@3w.local / admin
+  # ---------------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: 3w-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@3w.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - 3w-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # MinIO - emulador S3 local
+  # Console: http://localhost:9001  |  minioadmin / minioadmin
+  # API S3:  http://localhost:9000
+  # ---------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: 3w-minio
+    ports:
+      - "9000:9000"   # API S3
+      - "9001:9001"   # Console web
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - 3w-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # mc-init - cria o bucket S3 no MinIO na inicializacao
+  # Container efemero: executa uma vez e sai
+  # ---------------------------------------------------------------------------
+  mc-init:
+    image: minio/mc:latest
+    container_name: 3w-mc-init
+    networks:
+      - 3w-network
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin} &&
+        mc mb --ignore-existing local/${S3_BUCKET:-3w-offshore-events} &&
+        mc mb --ignore-existing local/${S3_BUCKET:-3w-offshore-events}/raw &&
+        mc mb --ignore-existing local/${S3_BUCKET:-3w-offshore-events}/processed &&
+        mc mb --ignore-existing local/${S3_BUCKET:-3w-offshore-events}/curated &&
+        mc mb --ignore-existing local/${S3_BUCKET:-3w-offshore-events}/models &&
+        mc mb --ignore-existing local/${S3_BUCKET:-3w-offshore-events}/results &&
+        echo 'Bucket e prefixos criados com sucesso.'
+      "
+    restart: "no"
+
+networks:
+  3w-network:
+    driver: bridge
+    name: 3w-offshore-network
+
+volumes:
+  postgres_data:
+    name: 3w-postgres-data
+  pgadmin_data:
+    name: 3w-pgadmin-data
+  minio_data:
+    name: 3w-minio-data

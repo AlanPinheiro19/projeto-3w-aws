@@ -19,7 +19,7 @@ from typing import List, Dict, Tuple
 # -----------------------------------------------------------------------------
 
 CLASSE = "8"
-BASE_DIR = Path("C:/projeto-3w-aws/data")
+BASE_DIR = Path("D:/Alan/Alan/Pos GRADUAÇÂO USP/eEDB-007 - Trabalho de Conclusão/projeto-3w-aws/data")
 LOCAL_DIR = BASE_DIR / f"classe{CLASSE}_wells_02_only"
 API_URL = f"https://api.github.com/repos/petrobras/3W/contents/dataset/{CLASSE}"
 

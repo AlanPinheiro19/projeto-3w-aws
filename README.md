@@ -154,9 +154,9 @@ cp .env.example .env
 
 ```bash
 docker compose up -d
-# Airflow UI: http://localhost:8080  (admin / admin)
+# Airflow UI: http://localhost:8080  
 # Jupyter:    http://localhost:8888
-# MinIO:      http://localhost:9000  (minioadmin / minioadmin)
+# MinIO:      http://localhost:9000  
 # pgAdmin:    http://localhost:5050
 ```
 

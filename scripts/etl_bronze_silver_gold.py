@@ -766,103 +766,122 @@ def load_well_from_silver(well_id: str) -> pd.DataFrame:
 
 
 def run_gold_process_well(well_id: str) -> int:
-    """Feature engineering para um unico poco.
-    Carrega apenas as linhas do poco (pyarrow filter), aplica rolling/lag/delta
-    e salva em data/gold/_temp_features/well_<id>.parquet.
-    Libera a RAM ao final via gc.collect().
+    """Feature engineering para um unico poco — processamento em chunks temporais.
+
+    Estrategia definitiva anti-OOM:
+    - Carrega o poco inteiro uma vez (~156 MB para 3M linhas × 13 cols float32)
+    - Processa feature engineering em chunks de CHUNK_SIZE linhas com OVERLAP de
+      bordas para garantir corretude de rolling/lag nas juncoes
+    - Escreve cada chunk processado (~169 MB pico) diretamente em parquet via
+      pyarrow.ParquetWriter (incremental, sem acumular na RAM)
+    - Pico de memoria total: ~500 MB independente do tamanho do poco
+
     Retorna o numero de linhas escritas (0 se o poco estiver vazio).
     """
     import gc
+    import pyarrow as pa
+    import pyarrow.parquet as pq
 
-    logger.info("=" * 50)
-    logger.info("Gold-Poco [%s] - iniciando", well_id)
+    # Overlap = max(ROLLING_WINDOWS) + max(LAG_STEPS) para corretude nas bordas
+    CHUNK_SIZE = 300_000
+    OVERLAP    = max(ROLLING_WINDOWS) + max(LAG_STEPS)   # 30 + 5 = 35
 
     META_COLS = {TIMESTAMP_COLUMN, "ID_Poco", TARGET_COLUMN,
                  "nome_evento", "bronze_at", "silver_at"}
 
-    # Carrega apenas este poco (eficiente em memoria via pyarrow filter)
-    df = load_well_from_silver(well_id)
-    if df.empty:
+    logger.info("=" * 50)
+    logger.info("Gold-Poco [%s] - iniciando (chunked, CHUNK=%d, OVERLAP=%d)",
+                well_id, CHUNK_SIZE, OVERLAP)
+
+    # 1. Carrega todo o poco (~156 MB) — necessario para fatiar chunks ordenados
+    df_well = load_well_from_silver(well_id)
+    if df_well.empty:
         logger.warning("Gold-Poco [%s]: sem dados. Ignorando.", well_id)
         return 0
 
-    # Ordena por timestamp antes das janelas de rolling
-    if TIMESTAMP_COLUMN in df.columns:
-        df = df.sort_values(TIMESTAMP_COLUMN).reset_index(drop=True)
+    # 2. Ordena por timestamp (obrigatorio para rolling temporal correto)
+    if TIMESTAMP_COLUMN in df_well.columns:
+        df_well = df_well.sort_values(TIMESTAMP_COLUMN).reset_index(drop=True)
 
-    # Remove linhas onde TODOS os sensores sao NaN ANTES da feature engineering.
-    # Feito aqui (df com ~13 colunas, ~156 MB) para evitar criar copia de 1.84 GB
-    # apos adicionar 128 colunas de features.
-    sensor_cols = [c for c in SENSOR_COLUMNS if c in df.columns]
-    before = len(df)
+    # 3. Remove linhas onde TODOS os sensores sao NaN (aqui df tem so ~13 cols)
+    sensor_cols = [c for c in SENSOR_COLUMNS if c in df_well.columns]
+    before = len(df_well)
     if sensor_cols:
-        mask = df[sensor_cols].isna().all(axis=1)
+        mask = df_well[sensor_cols].isna().all(axis=1)
         if mask.any():
-            df = df[~mask].reset_index(drop=True)
-    dropped = before - len(df)
-    if dropped > 0:
+            df_well = df_well[~mask].reset_index(drop=True)
+        del mask
+    dropped = before - len(df_well)
+    if dropped:
         logger.info("Gold-Poco [%s]: %d linhas removidas (todos sensores NaN).", well_id, dropped)
-    del mask if 'mask' in dir() else None
     gc.collect()
 
-    if df.empty:
+    if df_well.empty:
         logger.warning("Gold-Poco [%s]: vazio apos dropna.", well_id)
         return 0
 
-    # Feature engineering
-    df = create_rolling_features(df)
-    gc.collect()
-    df = create_lag_features(df)
-    gc.collect()
-    df = create_delta_features(df)
-    gc.collect()
-
-    # Preenche NaN coluna por coluna (bordas de janelas rolling/lag/delta).
-    # Evita alocar matriz booleana 3M×128 e copia de todas as features de uma vez.
-    fcols = [c for c in df.columns if c not in META_COLS]
-    nan_total = 0
-    for c in fcols:
-        n_nan = int(df[c].isna().sum())
-        if n_nan > 0:
-            df[c] = df[c].fillna(np.float32(0.0))
-            nan_total += n_nan
-    if nan_total > 0:
-        logger.info("Gold-Poco [%s]: %d NaN preenchidos com 0 nas features.", well_id, nan_total)
-    gc.collect()
-
-    # Salva parquet temporario em chunks para evitar OOM na conversao pandas->pyarrow.
-    # df fragmentado (128+ colunas adicionadas 1 a 1) + pa.Table.from_pandas(df) full
-    # aloca ~2x o tamanho do df de uma vez. Chunks de 200K linhas limitam o pico a ~300MB.
-    import pyarrow as pa
-    import pyarrow.parquet as pq
-
+    # 4. Prepara writer incremental para o parquet de saida
     temp_dir = GOLD_DIR / "_temp_features"
     temp_dir.mkdir(parents=True, exist_ok=True)
-    safe_id = (str(well_id)
-               .replace("/", "_").replace("\\", "_")
-               .replace(" ", "_").replace(":", "_"))
-    temp_path = temp_dir / f"well_{safe_id}.parquet"
-
-    CHUNK_ROWS = 200_000
-    n = len(df)
-    cols = df.columns.tolist()
+    safe_id  = (str(well_id)
+                .replace("/","_").replace("\\","_")
+                .replace(" ","_").replace(":","_"))
+    temp_path   = temp_dir / f"well_{safe_id}.parquet"
     writer_temp = None
-    for row_start in range(0, n, CHUNK_ROWS):
-        row_end = min(row_start + CHUNK_ROWS, n)
-        arrays = {c: pa.array(df[c].values[row_start:row_end]) for c in cols}
+    total_written = 0
+    n_total = len(df_well)
+
+    # 5. Itera em chunks com overlap de bordas
+    chunk_start = 0
+    while chunk_start < n_total:
+        # Janela com contexto anterior para rolling/lag corretos na borda
+        ctx_start = max(0, chunk_start - OVERLAP)
+        ctx_end   = min(chunk_start + CHUNK_SIZE, n_total)
+
+        df_chunk = df_well.iloc[ctx_start:ctx_end].copy()
+
+        # Feature engineering no chunk (com contexto)
+        df_chunk = create_rolling_features(df_chunk)
+        df_chunk = create_lag_features(df_chunk)
+        df_chunk = create_delta_features(df_chunk)
+        gc.collect()
+
+        # Fillna nas features (bordas de janela)
+        fcols = [c for c in df_chunk.columns if c not in META_COLS]
+        for c in fcols:
+            if df_chunk[c].isna().any():
+                df_chunk[c] = df_chunk[c].fillna(np.float32(0.0))
+
+        # Descarta as linhas de overlap (contexto anterior ja processado)
+        trim = chunk_start - ctx_start   # quantas linhas de contexto descartar
+        df_out = df_chunk.iloc[trim:].reset_index(drop=True)
+        del df_chunk
+        gc.collect()
+
+        # Escreve chunk em parquet (sem criar Table completa na RAM)
+        cols = df_out.columns.tolist()
+        arrays = {c: pa.array(df_out[c].values) for c in cols}
         tbl = pa.table(arrays)
         if writer_temp is None:
-            writer_temp = pq.ParquetWriter(str(temp_path), tbl.schema, compression="snappy")
+            writer_temp = pq.ParquetWriter(str(temp_path), tbl.schema,
+                                           compression="snappy")
         writer_temp.write_table(tbl)
-        del arrays, tbl
+        total_written += len(df_out)
+        del df_out, arrays, tbl
         gc.collect()
+
+        logger.info("Gold-Poco [%s]: chunk %d-%d escrito (%d total)",
+                    well_id, chunk_start, ctx_end, total_written)
+        chunk_start += CHUNK_SIZE
+
     if writer_temp:
         writer_temp.close()
 
-    logger.info("Gold-Poco [%s]: %d linhas -> %s", well_id, n, temp_path.name)
-    del df
+    del df_well
     gc.collect()
-    return n
+
+    logger.info("Gold-Poco [%s]: %d linhas -> %s", well_id, total_written, temp_path.name)
+    return total_written
 
 
 def run_gold_finalize() -> pd.DataFrame:

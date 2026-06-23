@@ -792,16 +792,24 @@ def run_gold_process_well(well_id: str) -> int:
 
     # Feature engineering (funcoes ja otimizadas com pd.concat)
     df = create_rolling_features(df)
+    gc.collect()
     df = create_lag_features(df)
+    gc.collect()
     df = create_delta_features(df)
+    gc.collect()
 
-    # Preenche NaN introduzidos por bordas de janelas rolling/lag/delta com 0.
-    # (how="any" sobre 128+ colunas descartava todas as linhas — OOM silencioso)
+    # Preenche NaN coluna por coluna para evitar alocar matriz booleana 3M×128
+    # e copia de todas as features de uma vez (pico de ~2 GB evitado).
     fcols = [c for c in df.columns if c not in META_COLS]
-    nan_before = int(df[fcols].isna().sum().sum())
-    if nan_before > 0:
-        df[fcols] = df[fcols].fillna(np.float32(0.0))
-        logger.info("Gold-Poco [%s]: %d NaN preenchidos com 0 nas features.", well_id, nan_before)
+    nan_total = 0
+    for c in fcols:
+        n_nan = int(df[c].isna().sum())
+        if n_nan > 0:
+            df[c] = df[c].fillna(np.float32(0.0))
+            nan_total += n_nan
+    if nan_total > 0:
+        logger.info("Gold-Poco [%s]: %d NaN preenchidos com 0 nas features.", well_id, nan_total)
+    gc.collect()
 
     # Descarta apenas linhas onde TODOS os sensores originais sao NaN (dados ausentes)
     sensor_cols = [c for c in SENSOR_COLUMNS if c in df.columns]

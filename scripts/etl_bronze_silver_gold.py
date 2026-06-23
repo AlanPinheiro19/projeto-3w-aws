@@ -981,55 +981,63 @@ def run_gold_finalize() -> pd.DataFrame:
     written_rows = {"train": 0, "val": 0, "test": 0}
     cumulative = 0
 
+    # Passo B processa cada well temporario em batches de 300K linhas para
+    # evitar carregar 3M x 141 colunas de uma vez (~1.84 GB por well).
+    FINALIZE_BATCH = 300_000
+
     for pf in temp_files:
-        df_w = pd.read_parquet(pf)
+        pf_reader = pq.ParquetFile(str(pf))
 
-        # Normaliza cada feature in-place e renomeia para _norm
-        rename_map = {}
-        for col in feature_cols:
-            if col in df_w.columns:
-                s = scaler_stats[col]
-                df_w[col] = (df_w[col] - s["mean"]) / s["std"]
-                rename_map[col] = f"{col}_norm"
-        df_w = df_w.rename(columns=rename_map)
+        for batch in pf_reader.iter_batches(batch_size=FINALIZE_BATCH):
+            df_w = batch.to_pandas()
 
-        norm_cols  = [c for c in df_w.columns if c.endswith("_norm")]
-        final_cols = [c for c in keep_meta if c in df_w.columns] + norm_cols
-        df_w = df_w[final_cols].copy()
-        df_w["gold_at"] = now_str
+            # Normaliza cada feature (float64 para precisao do Z-score)
+            rename_map = {}
+            for col in feature_cols:
+                if col in df_w.columns:
+                    s = scaler_stats[col]
+                    df_w[col] = (df_w[col].astype("float64") - s["mean"]) / s["std"]
+                    rename_map[col] = f"{col}_norm"
+            df_w = df_w.rename(columns=rename_map)
 
-        # Determina parcelas de treino/val/test dentro deste poco
-        well_len = len(df_w)
-        t_cut = max(0, train_end - cumulative)
-        v_cut = max(0, val_end   - cumulative)
+            norm_cols  = [c for c in df_w.columns if c.endswith("_norm")]
+            final_cols = [c for c in keep_meta if c in df_w.columns] + norm_cols
+            df_w = df_w[final_cols]
+            df_w["gold_at"] = now_str
 
-        splits = [
-            (df_w.iloc[:min(t_cut, well_len)],      "train"),
-            (df_w.iloc[t_cut:min(v_cut, well_len)], "val"),
-            (df_w.iloc[v_cut:],                     "test"),
-        ]
+            # Distribui linhas do batch entre treino/val/test
+            batch_len = len(df_w)
+            t_cut = max(0, min(train_end - cumulative, batch_len))
+            v_cut = max(0, min(val_end   - cumulative, batch_len))
 
-        for split_df, split_name in splits:
-            if split_df.empty:
-                continue
-            tbl = pa.Table.from_pandas(split_df, preserve_index=False)
-            if split_name == "train":
-                if train_writer is None:
-                    train_writer = pq.ParquetWriter(GOLD_DIR / "train.parquet", tbl.schema)
-                train_writer.write_table(tbl)
-            elif split_name == "val":
-                if val_writer is None:
-                    val_writer = pq.ParquetWriter(GOLD_DIR / "val.parquet", tbl.schema)
-                val_writer.write_table(tbl)
-            else:
-                if test_writer is None:
-                    test_writer = pq.ParquetWriter(GOLD_DIR / "test.parquet", tbl.schema)
-                test_writer.write_table(tbl)
-            written_rows[split_name] += len(split_df)
+            splits = [
+                (df_w.iloc[:t_cut],       "train"),
+                (df_w.iloc[t_cut:v_cut],  "val"),
+                (df_w.iloc[v_cut:],       "test"),
+            ]
 
-        cumulative += well_len
-        del df_w
-        gc.collect()
+            for split_df, split_name in splits:
+                if split_df.empty:
+                    continue
+                tbl = pa.Table.from_pandas(split_df, preserve_index=False)
+                if split_name == "train":
+                    if train_writer is None:
+                        train_writer = pq.ParquetWriter(GOLD_DIR / "train.parquet", tbl.schema)
+                    train_writer.write_table(tbl)
+                elif split_name == "val":
+                    if val_writer is None:
+                        val_writer = pq.ParquetWriter(GOLD_DIR / "val.parquet", tbl.schema)
+                    val_writer.write_table(tbl)
+                else:
+                    if test_writer is None:
+                        test_writer = pq.ParquetWriter(GOLD_DIR / "test.parquet", tbl.schema)
+                    test_writer.write_table(tbl)
+                written_rows[split_name] += len(split_df)
+                del tbl
+
+            cumulative += batch_len
+            del df_w, batch
+            gc.collect()
 
     # Fecha writers
     for w in [train_writer, val_writer, test_writer]:

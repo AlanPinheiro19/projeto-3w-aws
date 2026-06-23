@@ -24,10 +24,14 @@ models/*.h5
 .env
 credentials.json
 aws-keys.json
+# Terraform — segredos e estado (NUNCA versionar)
 terraform/*.tfvars
 terraform/.terraform/
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
+terraform/.terraform.lock.hcl
+terraform/override.tf
+terraform/*_override.tf
 
 # Logs de containers
 logs/

@@ -1,0 +1,29 @@
+# ============================================================
+# terraform.tfvars.example — Copie para terraform.tfvars
+# NUNCA commite terraform.tfvars (está no .gitignore)
+# ============================================================
+
+aws_region         = "us-east-1"
+environment        = "tcc"
+project_name       = "3w-petrobras"
+
+# Rede
+vpc_cidr           = "10.0.0.0/16"
+public_subnet_cidr = "10.0.1.0/24"
+availability_zone  = "us-east-1a"
+
+# EC2
+ec2_instance_type  = "t3.large"
+ec2_ami_id         = "ami-0c7217cdde317cfec"  # Ubuntu 22.04 LTS us-east-1
+ec2_volume_size_gb = 30
+
+# PREENCHA obrigatoriamente:
+key_pair_name    = "NOME-DO-KEY-PAIR"     # ex: "alan-3w-key"
+allowed_ssh_cidr = "SEU-IP/32"           # ex: "177.100.200.50/32"
+
+# S3 — prefixo globalmente único
+s3_bucket_prefix = "3w-tcc-alan-2026"
+
+# Senhas (sem @ ou / — quebram connection strings)
+airflow_admin_password = "AirflowAdmin2026"
+postgres_password      = "Postgres2026"

@@ -1,6 +1,6 @@
 # projeto-3w-aws
 
-**Sistema para Detecção e Classificação de Eventos Indesejáveis em Poços de Petróleo Offshore**
+**Detecção e Classificação de Eventos Indesejáveis em Poços Offshore com Machine Learning e Engenharia de Dados**
 
 Trabalho de Conclusão de Curso (TCC) — Especialização em Engenharia de Dados e Big Data  
 USP Escola Politécnica — Programa eEDB-007  

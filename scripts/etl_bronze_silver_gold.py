@@ -137,73 +137,126 @@ def run_bronze() -> pd.DataFrame:
     """
     Leitura da camada Processed e criacao da Bronze.
 
-    Transformacoes:
-    - Garante que timestamp e do tipo datetime
-    - Converte sensores para float64
-    - Garante que class/classe_evento e int8
-    - Remove colunas redundantes
-    - Adiciona coluna de origem e data de processamento
+    Processamento chunked (arquivo por arquivo) com escrita incremental via
+    pyarrow.ParquetWriter. Nao carrega todos os dados na RAM de uma vez,
+    permitindo processar datasets de qualquer tamanho em instancias com
+    memoria limitada (ex: t3.large 8 GB com 500+ arquivos / 9 M linhas).
+
+    Transformacoes por arquivo:
+    - Padronizacao de timestamp para datetime
+    - Conversao de sensores para float64
+    - Normalizacao de classe para int8
+    - Remocao de registros com class < 0
+    - Adicao de label textual e metadado bronze_at
+
+    Retorna DataFrame vazio: a camada Silver le diretamente do arquivo
+    gerado em disco (BRONZE_DIR/bronze_3w_all.parquet).
     """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
     logger.info("=" * 60)
-    logger.info("BRONZE - iniciando")
+    logger.info("BRONZE - iniciando (modo chunked por arquivo)")
     logger.info("=" * 60)
 
     from config.spark_config import PROCESSED_DIR
-    df = load_parquets_from_dir(
-        PROCESSED_DIR,
-        exclude_names=["all_classes_combined.parquet"]
-    )
 
-    if df.empty:
+    exclude = {"all_classes_combined.parquet", "all_classes_combined.csv"}
+    parquet_files = sorted([
+        f for f in PROCESSED_DIR.glob("*.parquet")
+        if f.name not in exclude
+    ])
+
+    if not parquet_files:
         logger.error("Sem dados em processed/ para criar Bronze.")
-        return df
+        return pd.DataFrame()
 
-    # Normaliza coluna de timestamp
-    for ts_col in ["timestamp", "index", "Timestamp"]:
-        if ts_col in df.columns:
-            df = df.rename(columns={ts_col: TIMESTAMP_COLUMN})
-            break
-    if TIMESTAMP_COLUMN in df.columns:
-        df[TIMESTAMP_COLUMN] = pd.to_datetime(df[TIMESTAMP_COLUMN], errors="coerce")
+    logger.info("Encontrados %d arquivos Parquet em %s", len(parquet_files), PROCESSED_DIR)
 
-    # Garante colunas de sensor existem e sao float
-    for col in SENSOR_COLUMNS:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
-        else:
-            df[col] = np.nan
-
-    # Normaliza coluna de classe
-    if "classe_evento" in df.columns:
-        df[TARGET_COLUMN] = df["classe_evento"].fillna(-1).astype("int8")
-    elif TARGET_COLUMN in df.columns:
-        df[TARGET_COLUMN] = pd.to_numeric(df[TARGET_COLUMN], errors="coerce").fillna(-1).astype("int8")
-
-    # Remove classes invalidas (-1)
-    before = len(df)
-    df = df[df[TARGET_COLUMN] >= 0]
-    removed = before - len(df)
-    if removed > 0:
-        logger.info("Bronze: removidos %d registros sem classe valida.", removed)
-
-    # Adiciona label textual se nao existir
-    if "nome_evento" not in df.columns:
-        df["nome_evento"] = df[TARGET_COLUMN].map(EVENT_LABELS).fillna("Desconhecido")
-
-    # Seleciona apenas colunas necessarias
     keep_cols = [TIMESTAMP_COLUMN, "ID_Poco", TARGET_COLUMN, "nome_evento"] + SENSOR_COLUMNS
-    available = [c for c in keep_cols if c in df.columns]
-    df = df[available].copy()
-
-    # Metadados
-    df["bronze_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-
-    logger.info("Bronze: %d linhas x %d colunas", *df.shape)
-    print_class_distribution(df, "Bronze")
-
+    bronze_at_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     out = BRONZE_DIR / "bronze_3w_all.parquet"
-    save_parquet(df, out, "bronze_3w_all.parquet")
-    return df
+
+    writer = None
+    total_rows = 0
+    removed_total = 0
+
+    for i, fpath in enumerate(parquet_files):
+        try:
+            df = pd.read_parquet(fpath)
+        except Exception as exc:
+            logger.error("Falha ao ler %s: %s", fpath.name, exc)
+            continue
+
+        # Normaliza timestamp
+        for ts_col in ["timestamp", "index", "Timestamp"]:
+            if ts_col in df.columns:
+                df = df.rename(columns={ts_col: TIMESTAMP_COLUMN})
+                break
+        if TIMESTAMP_COLUMN in df.columns:
+            df[TIMESTAMP_COLUMN] = pd.to_datetime(df[TIMESTAMP_COLUMN], errors="coerce")
+
+        # Sensores -> float64
+        for col in SENSOR_COLUMNS:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").astype("float64")
+            else:
+                df[col] = np.nan
+
+        # Classe -> int8
+        if "classe_evento" in df.columns:
+            df[TARGET_COLUMN] = df["classe_evento"].fillna(-1).astype("int8")
+        elif TARGET_COLUMN in df.columns:
+            df[TARGET_COLUMN] = pd.to_numeric(df[TARGET_COLUMN], errors="coerce").fillna(-1).astype("int8")
+        else:
+            df[TARGET_COLUMN] = np.int8(-1)
+
+        # Remove invalidos
+        before = len(df)
+        df = df[df[TARGET_COLUMN] >= 0].copy()
+        removed_total += before - len(df)
+
+        if df.empty:
+            continue
+
+        # Label textual
+        if "nome_evento" not in df.columns:
+            df["nome_evento"] = df[TARGET_COLUMN].map(EVENT_LABELS).fillna("Desconhecido")
+
+        # Seleciona colunas + metadado
+        available = [c for c in keep_cols if c in df.columns]
+        df = df[available].copy()
+        df["bronze_at"] = bronze_at_str
+
+        # Escrita incremental: abre writer na primeira tabela valida
+        table = pa.Table.from_pandas(df, preserve_index=False)
+        if writer is None:
+            writer = pq.ParquetWriter(str(out), table.schema, compression="snappy")
+        writer.write_table(table)
+
+        total_rows += len(df)
+
+        # Log de progresso a cada 50 arquivos
+        if (i + 1) % 50 == 0 or (i + 1) == len(parquet_files):
+            logger.info(
+                "Bronze: %d/%d arquivos processados | %d linhas acumuladas",
+                i + 1, len(parquet_files), total_rows,
+            )
+
+        # Libera memoria explicitamente
+        del df, table
+
+    if writer:
+        writer.close()
+        logger.info(
+            "Bronze concluido: %d linhas gravadas em %s (removidos %d invalidos)",
+            total_rows, out, removed_total,
+        )
+    else:
+        logger.error("Nenhum dado valido encontrado em processed/.")
+
+    # Retorna DataFrame vazio: run_silver() lerá do arquivo em disco
+    return pd.DataFrame()
 
 
 # ---------------------------------------------------------------------------

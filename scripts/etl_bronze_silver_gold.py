@@ -790,7 +790,26 @@ def run_gold_process_well(well_id: str) -> int:
     if TIMESTAMP_COLUMN in df.columns:
         df = df.sort_values(TIMESTAMP_COLUMN).reset_index(drop=True)
 
-    # Feature engineering (funcoes ja otimizadas com pd.concat)
+    # Remove linhas onde TODOS os sensores sao NaN ANTES da feature engineering.
+    # Feito aqui (df com ~13 colunas, ~156 MB) para evitar criar copia de 1.84 GB
+    # apos adicionar 128 colunas de features.
+    sensor_cols = [c for c in SENSOR_COLUMNS if c in df.columns]
+    before = len(df)
+    if sensor_cols:
+        mask = df[sensor_cols].isna().all(axis=1)
+        if mask.any():
+            df = df[~mask].reset_index(drop=True)
+    dropped = before - len(df)
+    if dropped > 0:
+        logger.info("Gold-Poco [%s]: %d linhas removidas (todos sensores NaN).", well_id, dropped)
+    del mask if 'mask' in dir() else None
+    gc.collect()
+
+    if df.empty:
+        logger.warning("Gold-Poco [%s]: vazio apos dropna.", well_id)
+        return 0
+
+    # Feature engineering
     df = create_rolling_features(df)
     gc.collect()
     df = create_lag_features(df)
@@ -798,8 +817,8 @@ def run_gold_process_well(well_id: str) -> int:
     df = create_delta_features(df)
     gc.collect()
 
-    # Preenche NaN coluna por coluna para evitar alocar matriz booleana 3M×128
-    # e copia de todas as features de uma vez (pico de ~2 GB evitado).
+    # Preenche NaN coluna por coluna (bordas de janelas rolling/lag/delta).
+    # Evita alocar matriz booleana 3M×128 e copia de todas as features de uma vez.
     fcols = [c for c in df.columns if c not in META_COLS]
     nan_total = 0
     for c in fcols:
@@ -810,19 +829,6 @@ def run_gold_process_well(well_id: str) -> int:
     if nan_total > 0:
         logger.info("Gold-Poco [%s]: %d NaN preenchidos com 0 nas features.", well_id, nan_total)
     gc.collect()
-
-    # Descarta apenas linhas onde TODOS os sensores originais sao NaN (dados ausentes)
-    sensor_cols = [c for c in SENSOR_COLUMNS if c in df.columns]
-    before = len(df)
-    if sensor_cols:
-        df = df.dropna(subset=sensor_cols, how="all")
-    dropped = before - len(df)
-    if dropped > 0:
-        logger.info("Gold-Poco [%s]: %d linhas removidas (todos sensores NaN).", well_id, dropped)
-
-    if df.empty:
-        logger.warning("Gold-Poco [%s]: vazio apos dropna.", well_id)
-        return 0
 
     # Salva parquet temporario em chunks para evitar OOM na conversao pandas->pyarrow.
     # df fragmentado (128+ colunas adicionadas 1 a 1) + pa.Table.from_pandas(df) full

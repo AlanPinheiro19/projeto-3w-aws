@@ -370,7 +370,8 @@ docker compose exec airflow-scheduler airflow dags trigger dag_etl_3w_pipeline
         LOG.info("Gold: %d pocos encontrados: %s", len(wells), wells)
         return wells
 
-    @task(task_id="gold_poco", execution_timeout=timedelta(hours=1), retries=0)
+    @task(task_id="gold_poco", execution_timeout=timedelta(hours=1), retries=0,
+          max_active_tis_per_dagrun=1)
     def _gold_processar_poco(well_id: str):
         """Feature engineering para um unico poco (uma instancia por poco).
         Carrega so as linhas do poco via pyarrow filter (evita OOM).

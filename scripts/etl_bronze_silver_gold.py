@@ -1061,10 +1061,14 @@ def run_gold_finalize() -> pd.DataFrame:
     logger.info("  Teste:     %d linhas (%.0f%%)", written_rows["test"],  TEST_RATIO  * 100)
     logger.info("  Features:  %d colunas normalizadas", len(feature_cols))
 
-    # Retorna amostra do treino para compatibilidade
+    # Retorna amostra minima do treino via pyarrow (sem carregar o arquivo inteiro)
     train_path = GOLD_DIR / "train.parquet"
     if train_path.exists():
-        return pd.read_parquet(train_path).head(1000)
+        try:
+            batch = next(pq.ParquetFile(str(train_path)).iter_batches(batch_size=1000))
+            return batch.to_pandas()
+        except Exception:
+            pass
     return pd.DataFrame()
 
 

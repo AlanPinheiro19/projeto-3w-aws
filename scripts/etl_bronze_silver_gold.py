@@ -824,16 +824,35 @@ def run_gold_process_well(well_id: str) -> int:
         logger.warning("Gold-Poco [%s]: vazio apos dropna.", well_id)
         return 0
 
-    # Salva parquet temporario
+    # Salva parquet temporario em chunks para evitar OOM na conversao pandas->pyarrow.
+    # df fragmentado (128+ colunas adicionadas 1 a 1) + pa.Table.from_pandas(df) full
+    # aloca ~2x o tamanho do df de uma vez. Chunks de 200K linhas limitam o pico a ~300MB.
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
     temp_dir = GOLD_DIR / "_temp_features"
     temp_dir.mkdir(parents=True, exist_ok=True)
     safe_id = (str(well_id)
                .replace("/", "_").replace("\\", "_")
                .replace(" ", "_").replace(":", "_"))
     temp_path = temp_dir / f"well_{safe_id}.parquet"
-    df.to_parquet(temp_path, index=False)
 
+    CHUNK_ROWS = 200_000
     n = len(df)
+    cols = df.columns.tolist()
+    writer_temp = None
+    for row_start in range(0, n, CHUNK_ROWS):
+        row_end = min(row_start + CHUNK_ROWS, n)
+        arrays = {c: pa.array(df[c].values[row_start:row_end]) for c in cols}
+        tbl = pa.table(arrays)
+        if writer_temp is None:
+            writer_temp = pq.ParquetWriter(str(temp_path), tbl.schema, compression="snappy")
+        writer_temp.write_table(tbl)
+        del arrays, tbl
+        gc.collect()
+    if writer_temp:
+        writer_temp.close()
+
     logger.info("Gold-Poco [%s]: %d linhas -> %s", well_id, n, temp_path.name)
     del df
     gc.collect()

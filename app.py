@@ -59,27 +59,89 @@ MODELS = BASE / "models"
 DATA   = BASE / "data" / "gold"
 ASSETS = BASE / "assets"
 
-# SVGs fallback (quando arquivos de assets não estão disponíveis)
-_SVG_USP = (
-    "data:image/svg+xml;base64," + base64.b64encode(
-        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 40'>"
-        b"<text x='4' y='32' font-family='Arial' font-size='28' font-weight='900'"
-        b" fill='white'>USP</text></svg>"
-    ).decode()
-)
-_SVG_MINERVA = (
-    "data:image/svg+xml;base64," + base64.b64encode(
-        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 56'>"
-        b"<circle cx='28' cy='28' r='26' fill='#003087' stroke='#EDB931' stroke-width='2'/>"
-        b"<text x='28' y='38' font-family='serif' font-size='28' text-anchor='middle'"
-        b" fill='#EDB931'>M</text></svg>"
-    ).decode()
+# ── Logo PECE: badge institucional SVG ───────────────────────────────────────
+_SVG_PECE = (
+    "data:image/svg+xml;base64," + base64.b64encode((
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 72'>"
+        "<defs>"
+        "  <linearGradient id='pg' x1='0%' y1='0%' x2='100%' y2='100%'>"
+        "    <stop offset='0%' stop-color='#1565C0'/>"
+        "    <stop offset='100%' stop-color='#003087'/>"
+        "  </linearGradient>"
+        "</defs>"
+        "<rect width='180' height='72' rx='6' fill='url(#pg)'/>"
+        "<rect x='0' y='0' width='180' height='3' rx='1' fill='#EDB931'/>"
+        "<rect x='0' y='69' width='180' height='3' rx='1' fill='#EDB931'/>"
+        "<text x='90' y='35' font-family='Arial Black,Arial' font-size='28'"
+        "  font-weight='900' fill='white' text-anchor='middle' letter-spacing='8'>PECE</text>"
+        "<text x='90' y='52' font-family='Arial' font-size='8.5' fill='#EDB931'"
+        "  text-anchor='middle' letter-spacing='2'>PROGRAMA DE EDUCAÇÃO CONTINUADA</text>"
+        "<text x='90' y='64' font-family='Arial' font-size='7.5'"
+        "  fill='rgba(255,255,255,0.75)' text-anchor='middle' letter-spacing='1'>"
+        "  ESCOLA POLITÉCNICA · USP</text>"
+        "</svg>"
+    ).encode()).decode()
 )
 
-# Logos: usa arquivo em assets/ se existir, senão usa fallback SVG
-LOGO_PECE    = img_b64(ASSETS / "logo-pece-photo.jpg",  _SVG_USP)
-LOGO_USP     = img_b64(ASSETS / "logo-usp.png",         _SVG_USP)
-MINERVA_ICON = img_b64(ASSETS / "minerva-usp.png",      _SVG_MINERVA)
+# ── Logo Minerva / Escola Politécnica USP: selo circular SVG ─────────────────
+_SVG_MINERVA = (
+    "data:image/svg+xml;base64," + base64.b64encode((
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'>"
+        "<defs>"
+        "  <linearGradient id='mg' x1='0%' y1='0%' x2='100%' y2='100%'>"
+        "    <stop offset='0%' stop-color='#1976D2'/>"
+        "    <stop offset='55%' stop-color='#003087'/>"
+        "    <stop offset='100%' stop-color='#0A1628'/>"
+        "  </linearGradient>"
+        "  <path id='tarc' d='M 22,100 A 78,78 0 0,1 178,100'/>"
+        "  <path id='barc' d='M 28,115 A 76,76 0 0,0 172,115'/>"
+        "  <clipPath id='cc'><circle cx='100' cy='100' r='96'/></clipPath>"
+        "</defs>"
+        "<!-- fundo -->"
+        "<circle cx='100' cy='100' r='99' fill='url(#mg)' stroke='#EDB931' stroke-width='3'/>"
+        "<circle cx='100' cy='100' r='86' fill='none' stroke='rgba(237,185,49,0.35)' stroke-width='1'/>"
+        "<!-- silhueta da Minerva (perfil direito simplificado) -->"
+        "<g fill='white' opacity='0.92'>"
+        "  <!-- elmo/capacete -->"
+        "  <path d='M 95,52 C 80,52 68,62 67,76 C 66,88 72,94 78,96"
+        "           C 76,100 74,108 74,115 L 88,115 C 88,110 89,106 90,103"
+        "           C 95,104 102,103 106,100 C 112,96 116,88 114,76"
+        "           C 112,62 110,52 95,52 Z'/>"
+        "  <!-- crista do elmo -->"
+        "  <path d='M 88,52 C 90,44 92,38 95,34 C 98,38 100,44 102,52 Z'/>"
+        "  <!-- rosto / perfil -->"
+        "  <path d='M 90,103 C 87,107 85,113 84,120 C 83,126 84,131 87,135"
+        "           C 89,138 92,139 95,139 C 98,139 101,137 103,134"
+        "           C 105,131 105,127 104,123 C 103,118 101,113 98,108"
+        "           C 96,105 93,103 90,103 Z'/>"
+        "  <!-- pescoço -->"
+        "  <rect x='90' y='138' width='12' height='16' rx='4'/>"
+        "  <!-- ombros -->"
+        "  <path d='M 75,154 C 78,150 85,148 95,148 C 108,148 118,151 122,156"
+        "           L 118,164 C 115,160 108,158 95,158 C 85,158 79,160 76,163 Z'/>"
+        "</g>"
+        "<!-- texto superior -->"
+        "<text font-family='Arial' font-size='12.5' fill='white' letter-spacing='0.5'>"
+        "  <textPath href='#tarc' startOffset='4%'>"
+        "    UNIVERSIDADE DE SÃO PAULO"
+        "  </textPath>"
+        "</text>"
+        "<!-- separadores -->"
+        "<circle cx='19' cy='100' r='3' fill='#EDB931'/>"
+        "<circle cx='181' cy='100' r='3' fill='#EDB931'/>"
+        "<!-- texto inferior -->"
+        "<text font-family='Arial' font-size='12.5' fill='#EDB931' letter-spacing='0.5'>"
+        "  <textPath href='#barc' startOffset='8%'>"
+        "    ESCOLA POLITÉCNICA"
+        "  </textPath>"
+        "</text>"
+        "</svg>"
+    ).encode()).decode()
+)
+
+# Logos
+LOGO_PECE    = img_b64(ASSETS / "logo-pece-photo.jpg", _SVG_PECE)
+MINERVA_ICON = _SVG_MINERVA
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Constantes do domínio
@@ -306,8 +368,10 @@ st.markdown(f"""
             box-shadow:0 4px 24px rgba(0,0,0,0.5);overflow:hidden;margin-bottom:18px;">
   <div style="height:4px;background:linear-gradient(90deg,{USP_GOLD},#FFE57F,{USP_GOLD});"></div>
   <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 28px;">
-    <div style="display:flex;align-items:center;gap:18px;flex-shrink:0;">
-      <img src="{LOGO_PECE}" style="height:64px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));" />
+    <div style="display:flex;align-items:center;flex-shrink:0;">
+      <img src="{LOGO_PECE}"
+           style="height:60px;width:auto;object-fit:contain;
+                  filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));" />
     </div>
     <div style="text-align:center;flex:1;padding:0 24px;">
       <div style="font-size:1.4rem;font-weight:800;color:white;letter-spacing:0.02em;line-height:1.2;">
@@ -318,15 +382,11 @@ st.markdown(f"""
       </div>
     </div>
     <div style="flex-shrink:0;">
-      <div style="width:68px;height:68px;border-radius:50%;
-                  background:linear-gradient(135deg,#1565C0 0%,#003087 60%,#0D1B2A 100%);
-                  border:2px solid {USP_GOLD};
-                  box-shadow:0 0 14px rgba(237,185,49,0.45);
-                  display:flex;align-items:center;justify-content:center;overflow:hidden;">
-        <img src="https://www.poli.usp.br/wp-content/uploads/elementor/thumbs/Logo-Escola-Politecnica-Minerva_Logo-Escola-Politecnica-Minerva-01-scaled-1-rm596ipq3p2i503ugdlbsxr0q41tiqieixckswqzh0.jpg"
-             style="width:62px;height:62px;object-fit:cover;border-radius:50%;
-                    filter:brightness(0) invert(1) drop-shadow(0 0 2px rgba(255,255,255,0.4));" />
-      </div>
+      <img src="{MINERVA_ICON}"
+           style="height:72px;width:72px;object-fit:contain;
+                  border-radius:50%;
+                  box-shadow:0 0 14px rgba(237,185,49,0.5);
+                  filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));" />
     </div>
   </div>
   <div style="height:2px;background:linear-gradient(90deg,transparent,{USP_GOLD},transparent);"></div>

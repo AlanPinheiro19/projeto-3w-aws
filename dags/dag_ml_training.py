@@ -131,9 +131,10 @@ A camada Gold deve estar populada. Rode `dag_gold_rebuild` antes se necessário.
             print(f'  {s}: {n:,} linhas')
         print(f'  TOTAL: {total:,} linhas')
 
-        # Verifica features
-        df_feat = pd.read_parquet(gold / 'train.parquet')
-        feat_cols = [c for c in df_feat.columns if c.endswith('_norm')]
+        # Verifica features — lê só o schema (sem carregar dados na RAM)
+        import pyarrow.parquet as pq
+        schema = pq.read_schema(str(gold / 'train.parquet'))
+        feat_cols = [c for c in schema.names if c.endswith('_norm')]
         print(f'  Features _norm: {len(feat_cols)}')
         if len(feat_cols) < 10:
             raise ValueError(f'Poucas features _norm ({len(feat_cols)}). Gold pode estar corrompido.')

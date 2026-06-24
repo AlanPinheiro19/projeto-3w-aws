@@ -59,16 +59,7 @@ MODELS = BASE / "models"
 DATA   = BASE / "data" / "gold"
 ASSETS = BASE / "assets"
 
-# SVGs fallback (quando download_assets.py ainda não foi executado)
-_SVG_PECE = (
-    "data:image/svg+xml;base64," + base64.b64encode(
-        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 50'>"
-        b"<text x='4' y='32' font-family='Arial' font-size='26' font-weight='900'"
-        b" fill='white' letter-spacing='6'>PECE</text>"
-        b"<text x='4' y='46' font-family='Arial' font-size='8'"
-        b" fill='rgba(255,255,255,0.7)'>ESCOLA POLITECNICA USP</text></svg>"
-    ).decode()
-)
+# SVGs fallback (quando arquivos de assets não estão disponíveis)
 _SVG_USP = (
     "data:image/svg+xml;base64," + base64.b64encode(
         b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 40'>"
@@ -85,9 +76,10 @@ _SVG_MINERVA = (
     ).decode()
 )
 
-LOGO_PECE    = img_b64(ASSETS / "logo-pece-white.png", _SVG_PECE)
-LOGO_USP     = img_b64(ASSETS / "logo-usp.png",        _SVG_USP)
-MINERVA_ICON = img_b64(ASSETS / "minerva.png",         _SVG_MINERVA)
+# Logos: usa arquivo em assets/ se existir, senão usa fallback SVG
+LOGO_PECE    = img_b64(ASSETS / "logo-pece-photo.jpg",  _SVG_USP)
+LOGO_USP     = img_b64(ASSETS / "logo-usp.png",         _SVG_USP)
+MINERVA_ICON = img_b64(ASSETS / "minerva-usp.png",      _SVG_MINERVA)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Constantes do domínio
@@ -315,9 +307,7 @@ st.markdown(f"""
   <div style="height:4px;background:linear-gradient(90deg,{USP_GOLD},#FFE57F,{USP_GOLD});"></div>
   <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 28px;">
     <div style="display:flex;align-items:center;gap:18px;flex-shrink:0;">
-      <img src="{LOGO_PECE}" style="height:52px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.4));" />
-      <div style="width:1px;height:40px;background:rgba(255,255,255,0.2);"></div>
-      <img src="{LOGO_USP}" style="height:44px;filter:brightness(0) invert(1) drop-shadow(0 2px 4px rgba(0,0,0,0.4));" />
+      <img src="{LOGO_PECE}" style="height:64px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.5));" />
     </div>
     <div style="text-align:center;flex:1;padding:0 24px;">
       <div style="font-size:1.4rem;font-weight:800;color:white;letter-spacing:0.02em;line-height:1.2;">
@@ -328,8 +318,15 @@ st.markdown(f"""
       </div>
     </div>
     <div style="flex-shrink:0;">
-      <img src="{MINERVA_ICON}" style="height:56px;border-radius:50%;border:2px solid {USP_GOLD};
-           box-shadow:0 0 12px rgba(237,185,49,0.4);" />
+      <div style="width:68px;height:68px;border-radius:50%;
+                  background:linear-gradient(135deg,#1565C0 0%,#003087 60%,#0D1B2A 100%);
+                  border:2px solid {USP_GOLD};
+                  box-shadow:0 0 14px rgba(237,185,49,0.45);
+                  display:flex;align-items:center;justify-content:center;overflow:hidden;">
+        <img src="https://www.poli.usp.br/wp-content/uploads/elementor/thumbs/Logo-Escola-Politecnica-Minerva_Logo-Escola-Politecnica-Minerva-01-scaled-1-rm596ipq3p2i503ugdlbsxr0q41tiqieixckswqzh0.jpg"
+             style="width:62px;height:62px;object-fit:cover;border-radius:50%;
+                    filter:brightness(0) invert(1) drop-shadow(0 0 2px rgba(255,255,255,0.4));" />
+      </div>
     </div>
   </div>
   <div style="height:2px;background:linear-gradient(90deg,transparent,{USP_GOLD},transparent);"></div>

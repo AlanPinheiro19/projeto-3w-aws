@@ -174,7 +174,7 @@ A camada Gold deve estar populada. Rode `dag_gold_rebuild` antes se necessário.
         python_callable   = _cmd_treinar,
         op_kwargs         = {
             'script_name': 'train_rf_baseline.py',
-            'extra_args':  '--n-estimators {{ params.n_estimators_rf }} --n-jobs 1',
+            'extra_args':  '--n-estimators {{ params.n_estimators_rf }} --n-jobs 1 --max-samples 500000',
         },
         execution_timeout = timedelta(hours=1),
     )

@@ -75,11 +75,13 @@ def parse_args():
                    help='Min samples por folha (default: 5)')
     p.add_argument('--n-jobs', type=int, default=-1,
                    help='Threads paralelas (default: -1 = todos os cores)')
+    p.add_argument('--max-samples', type=int, default=500_000,
+                   help='Máx amostras de treino (default: 500000; 0 = sem limite)')
     p.add_argument('--verbose', action='store_true')
     return p.parse_args()
 
 # ── Carregamento ──────────────────────────────────────────────────────────────
-def load_data():
+def load_data(max_samples: int = 500_000):
     print('Carregando dados Gold...')
     print(f'  Diretório Gold: {GOLD_DIR}')
 
@@ -87,6 +89,15 @@ def load_data():
     val   = pd.read_parquet(GOLD_DIR / 'val.parquet')
     test  = pd.read_parquet(GOLD_DIR / 'test.parquet')
     print(f'  train={len(train):,}  val={len(val):,}  test={len(test):,}')
+
+    # ── Sampling estratificado para limitar uso de RAM ───────────────────────
+    if max_samples and len(train) > max_samples:
+        frac = max_samples / len(train)
+        train = train.groupby('class', group_keys=False).apply(
+            lambda x: x.sample(frac=frac, random_state=42)
+        ).reset_index(drop=True)
+        print(f'  [SAMPLING] train reduzido para {len(train):,} amostras '
+              f'(estratificado por classe)')
 
     # ── Fallback: se splits estão vazios, faz split manual ───────────────────
     total = len(train) + len(val) + len(test)
@@ -288,7 +299,9 @@ def main():
     print(f'PROJECT_DIR: {PROJECT_DIR}')
     print(f'scikit-learn: {sklearn.__version__}')
 
-    X_train, y_train, X_val, y_val, X_test, y_test, feat_cols = load_data()
+    X_train, y_train, X_val, y_val, X_test, y_test, feat_cols = load_data(
+        max_samples=args.max_samples
+    )
     clf = train_model(X_train, y_train, args)
 
     classes = sorted(np.unique(np.concatenate([y_train, y_val, y_test])))

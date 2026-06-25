@@ -2,6 +2,7 @@
 
 **Detecção e Classificação de Eventos Indesejáveis em Poços Offshore com Machine Learning e Engenharia de Dados**
 
+
 Trabalho de Conclusão de Curso (TCC) — Especialização em Engenharia de Dados e Big Data  
 USP Escola Politécnica — Programa eEDB-007  
 Autor: Alan Pinheiro da Silva | 2026

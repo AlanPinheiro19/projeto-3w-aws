@@ -99,9 +99,12 @@ def load_data(max_samples: int = 500_000):
                 return df
         return pd.read_parquet(path)
 
+    val_samples  = max_samples // 5 if max_samples else 0   # 20% do train
+    test_samples = max_samples // 5 if max_samples else 0
+
     train = _read_limited(GOLD_DIR / 'train.parquet', max_samples)
-    val   = pd.read_parquet(GOLD_DIR / 'val.parquet')
-    test  = pd.read_parquet(GOLD_DIR / 'test.parquet')
+    val   = _read_limited(GOLD_DIR / 'val.parquet',   val_samples)
+    test  = _read_limited(GOLD_DIR / 'test.parquet',  test_samples)
     print(f'  train={len(train):,}  val={len(val):,}  test={len(test):,}')
 
     # ── Fallback: se splits estão vazios, faz split manual ───────────────────

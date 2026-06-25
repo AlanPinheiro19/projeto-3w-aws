@@ -52,13 +52,17 @@ Este projeto desenvolve um sistema automatizado de detecção e classificação 
 
 ## Resultados dos Modelos
 
-| Modelo | F1-Macro Teste | Acurácia Teste | Observação |
-|--------|---------------|----------------|------------|
-| Random Forest | 91,1% | 99,6% | 150 árvores, class_weight=balanced |
-| XGBoost | 90,0% → 95,7%* | 99,3% | *após threshold tuning (+5,7pp) |
-| **LightGBM** ★ | **96,2%** | **99,9%** | Melhor modelo — recomendado para produção |
+> ✅ **Validado em produção — AWS EC2 t3.large (jun/2026)**
+
+| Modelo | F1-Macro Baseline | F1-Macro Tuned | Acurácia Teste | Observação |
+|--------|------------------|----------------|----------------|------------|
+| Random Forest | 91,1% | 93,7% (+2,6pp) | 99,6% | 100 árvores, class_weight=balanced |
+| XGBoost | 90,0% | **95,7%** (+5,7pp) | 99,3% | Maior ganho com threshold tuning |
+| **LightGBM** ★ | **96,2%** | **96,2%** | **99,9%** | Melhor modelo — já otimizado no baseline |
 
 Split estratificado por classe (70/15/15). O split temporal foi descartado pois excluía a classe 7 do treino (F1-macro RF caiu para 24,5%).
+
+Pipeline executado na nuvem: 7.484.141 registros processados, 136 features geradas, modelos treinados e validados no EC2 com dados do S3.
 
 ---
 

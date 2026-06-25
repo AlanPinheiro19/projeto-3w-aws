@@ -66,12 +66,12 @@ with DAG(
     tags            = ['ml', 'training', '3w'],
     params          = {
         'modelos':        'all',     # 'all' | 'rf' | 'xgb' | 'lgb'
-        'n_estimators_rf':   150,
-        'n_estimators_xgb':  500,
-        'n_estimators_lgb': 1000,
+        'n_estimators_rf':   100,    # reduzido para t3.large (8GB RAM)
+        'n_estimators_xgb':  200,    # early stopping para mais cedo (era 500)
+        'n_estimators_lgb':  500,    # early stopping reduz na prática (era 1000)
         'threshold_steps':    50,
-        'shap_n_background': 100,
-        'shap_n_explain':    200,
+        'shap_n_background':  50,    # reduzido para economizar RAM (era 100)
+        'shap_n_explain':    100,    # reduzido para economizar RAM (era 200)
         'force_retrain':    False,   # True → retreina mesmo se .joblib existir
     },
 ) as dag:
@@ -167,35 +167,36 @@ A camada Gold deve estar populada. Rode `dag_gold_rebuild` antes se necessário.
         if proc.returncode != 0:
             raise RuntimeError(f'{script_name} falhou com código {proc.returncode}')
 
+    # Sequencial para economizar RAM no t3.large (8GB):
+    # RF → XGB → LGB, cada um libera memória antes do próximo iniciar.
     treinar_rf = PythonOperator(
-        task_id         = 'treinar_rf',
-        python_callable = _cmd_treinar,
-        op_kwargs       = {
+        task_id           = 'treinar_rf',
+        python_callable   = _cmd_treinar,
+        op_kwargs         = {
             'script_name': 'train_rf_baseline.py',
-            'extra_args':  '--n-estimators {{ params.n_estimators_rf }}',
+            'extra_args':  '--n-estimators {{ params.n_estimators_rf }} --n-jobs 1',
         },
-        pool            = 'ml_training_pool',
+        execution_timeout = timedelta(hours=1),
     )
 
     treinar_xgb = PythonOperator(
-        task_id         = 'treinar_xgb',
-        python_callable = _cmd_treinar,
-        op_kwargs       = {
+        task_id           = 'treinar_xgb',
+        python_callable   = _cmd_treinar,
+        op_kwargs         = {
             'script_name': 'train_xgb_baseline.py',
             'extra_args':  '--n-estimators {{ params.n_estimators_xgb }}',
         },
-        pool            = 'ml_training_pool',
         execution_timeout = timedelta(hours=2),
     )
 
     treinar_lgb = PythonOperator(
-        task_id         = 'treinar_lgb',
-        python_callable = _cmd_treinar,
-        op_kwargs       = {
+        task_id           = 'treinar_lgb',
+        python_callable   = _cmd_treinar,
+        op_kwargs         = {
             'script_name': 'train_lgb_baseline.py',
-            'extra_args':  '--n-estimators {{ params.n_estimators_lgb }}',
+            'extra_args':  '--n-estimators {{ params.n_estimators_lgb }} --n-jobs 1',
         },
-        pool            = 'ml_training_pool',
+        execution_timeout = timedelta(hours=1),
     )
 
     # ── 3. Threshold tuning (aguarda os 3 modelos) ────────────────────────────
@@ -295,12 +296,15 @@ A camada Gold deve estar populada. Rode `dag_gold_rebuild` antes se necessário.
 
     # ── Dependências ───────────────────────────────────────────────────────────
     #
-    #   verificar_gold
-    #       ├── treinar_rf  ──────────────────────────────┐
-    #       ├── treinar_xgb ──── threshold_tuning ─────────┼── relatorio_ml
-    #       └── treinar_lgb ──┘           └── shap_analysis ┘
+    #   verificar_gold → treinar_rf → treinar_xgb → treinar_lgb
+    #                                                    ↓
+    #                                           threshold_tuning
+    #                                                    ↓
+    #                                            shap_analysis
+    #                                                    ↓
+    #                                            relatorio_ml
     #
-    verificar_gold >> [treinar_rf, treinar_xgb, treinar_lgb]
-    [treinar_rf, treinar_xgb, treinar_lgb] >> threshold_tuning
-    [threshold_tuning, treinar_lgb] >> shap_analysis
-    [threshold_tuning, shap_analysis] >> relatorio_ml
+    # Sequencial: cada modelo libera RAM antes do próximo iniciar (t3.large 8GB).
+    #
+    verificar_gold >> treinar_rf >> treinar_xgb >> treinar_lgb
+    treinar_lgb >> threshold_tuning >> shap_analysis >> relatorio_ml

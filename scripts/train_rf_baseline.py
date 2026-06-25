@@ -82,22 +82,27 @@ def parse_args():
 
 # ── Carregamento ──────────────────────────────────────────────────────────────
 def load_data(max_samples: int = 500_000):
+    import pyarrow.parquet as pq
+
     print('Carregando dados Gold...')
     print(f'  Diretório Gold: {GOLD_DIR}')
 
-    train = pd.read_parquet(GOLD_DIR / 'train.parquet')
+    def _read_limited(path, max_rows):
+        """Lê apenas max_rows linhas do parquet sem carregar o arquivo inteiro na RAM."""
+        if max_rows:
+            pf = pq.ParquetFile(str(path))
+            total = pf.metadata.num_rows
+            if total > max_rows:
+                batch = next(pf.iter_batches(batch_size=max_rows))
+                df = batch.to_pandas()
+                print(f'  [SAMPLING] {path.name}: {total:,} → {len(df):,} linhas lidas do disco')
+                return df
+        return pd.read_parquet(path)
+
+    train = _read_limited(GOLD_DIR / 'train.parquet', max_samples)
     val   = pd.read_parquet(GOLD_DIR / 'val.parquet')
     test  = pd.read_parquet(GOLD_DIR / 'test.parquet')
     print(f'  train={len(train):,}  val={len(val):,}  test={len(test):,}')
-
-    # ── Sampling estratificado para limitar uso de RAM ───────────────────────
-    if max_samples and len(train) > max_samples:
-        frac = max_samples / len(train)
-        train = train.groupby('class', group_keys=False).apply(
-            lambda x: x.sample(frac=frac, random_state=42)
-        ).reset_index(drop=True)
-        print(f'  [SAMPLING] train reduzido para {len(train):,} amostras '
-              f'(estratificado por classe)')
 
     # ── Fallback: se splits estão vazios, faz split manual ───────────────────
     total = len(train) + len(val) + len(test)

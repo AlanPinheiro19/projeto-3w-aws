@@ -268,6 +268,7 @@ As classes 3, 5 e 8 não ocorrem nos três poços selecionados. A expansão para
 PETROBRAS. **Dataset 3W** — Timely detections for more proactive and effective actions in offshore oil wells.  
 Disponível em: https://github.com/petrobras/3W | Versão: 1.70.0 (abr/2026)
 
+
 ---
 
 ## GitHub Topics

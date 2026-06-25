@@ -85,9 +85,34 @@ _SVG_MINERVA = (
     ).decode()
 )
 
+# Amazon Machine Learning logo — caixas empilhadas estilo AWS (laranja)
+_SVG_AWS_ML = (
+    "data:image/svg+xml;base64," + base64.b64encode((
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 210 64'>"
+        # fundo azul com borda dourada
+        "<rect width='210' height='64' rx='9' fill='#1565C0' stroke='#EDB931' stroke-width='2.5'/>"
+        # ícone: 3×3 grid de cubos laranja (AWS ML style)
+        "<rect x='9'  y='8'  width='14' height='14' rx='2' fill='#FF9900'/>"
+        "<rect x='25' y='8'  width='14' height='14' rx='2' fill='#FF9900'/>"
+        "<rect x='41' y='8'  width='14' height='14' rx='2' fill='#FF9900'/>"
+        "<rect x='9'  y='25' width='14' height='14' rx='2' fill='#FF9900'/>"
+        "<rect x='25' y='25' width='14' height='14' rx='2' fill='#FF9900'/>"
+        "<rect x='41' y='25' width='14' height='14' rx='2' fill='#FF9900'/>"
+        "<rect x='9'  y='42' width='14' height='14' rx='2' fill='#FF9900'/>"
+        "<rect x='25' y='42' width='14' height='14' rx='2' fill='#FF9900'/>"
+        "<rect x='41' y='42' width='14' height='14' rx='2' fill='#FF9900'/>"
+        # texto
+        "<text x='66' y='20' font-family='Arial' font-size='9' fill='rgba(255,255,255,0.8)'>Amazon</text>"
+        "<text x='66' y='39' font-family='Arial' font-size='15' font-weight='700' fill='white'>Machine</text>"
+        "<text x='66' y='57' font-family='Arial' font-size='15' font-weight='700' fill='white'>Learning</text>"
+        "</svg>"
+    ).encode()).decode()
+)
+
 LOGO_PECE    = img_b64(ASSETS / "logo-pece-white.png", _SVG_PECE)
 LOGO_USP     = img_b64(ASSETS / "logo-usp.png",        _SVG_USP)
 MINERVA_ICON = img_b64(ASSETS / "minerva.png",         _SVG_MINERVA)
+AWS_ML_LOGO  = img_b64(ASSETS / "amazon-ml.png",       _SVG_AWS_ML)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Constantes do domínio
@@ -328,8 +353,9 @@ st.markdown(f"""
       </div>
     </div>
     <div style="flex-shrink:0;">
-      <img src="{MINERVA_ICON}" style="height:56px;border-radius:50%;border:2px solid {USP_GOLD};
-           box-shadow:0 0 12px rgba(237,185,49,0.4);" />
+      <img src="{AWS_ML_LOGO}" style="height:60px;border-radius:10px;
+           border:2px solid {USP_GOLD};
+           box-shadow:0 0 14px rgba(237,185,49,0.45),0 2px 8px rgba(0,0,0,0.5);" />
     </div>
   </div>
   <div style="height:2px;background:linear-gradient(90deg,transparent,{USP_GOLD},transparent);"></div>

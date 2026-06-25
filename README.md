@@ -274,4 +274,4 @@ Disponível em: https://github.com/petrobras/3W | Versão: 1.70.0 (abr/2026)
 ## GitHub Topics
 
 <!-- Adicionar no repositório: Settings → Topics -->
-`machine-learning` `data-engineering` `apache-airflow` `aws` `amazon-ec2` `amazon-s3` `terraform` `lightgbm` `xgboost` `scikit-learn` `shap` `petrobras-3w` `medallion-architecture` `parquet` `pyarrow` `time-series` `anomaly-detection` `offshore-oil-wells` `python` `docker`
+`machine-learning` `data-engineering` `apache-airflow` `aws` `amazon-ec2` `amazon-s3` `terraform` `lightgbm` `xgboost` `scikit-learn` `shap` `petrobras-3w` `medallion-architecture` `parquet` `pyarrow` `time-series` `anomaly-detection` `offshore-oil-wells` `python` `docker` `3wcommunit`

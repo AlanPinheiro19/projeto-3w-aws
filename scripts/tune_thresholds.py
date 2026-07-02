@@ -83,14 +83,47 @@ def parse_args():
 
 # ── Carregamento de dados ──────────────────────────────────────────────────────
 def load_data():
+    """Carrega splits Gold em chunks para evitar OOM.
+    Aplica split estratificado quando val/test estao com classes ausentes
+    (split temporal concentra eventos em janelas especificas).
+    """
     from sklearn.model_selection import train_test_split
+    import pyarrow.parquet as pq
 
     print('Carregando dados Gold...')
-    print(f'  Diretório Gold: {GOLD_DIR}')
+    print(f'  Diretorio Gold: {GOLD_DIR}')
 
-    train = pd.read_parquet(GOLD_DIR / 'train.parquet')
-    val   = pd.read_parquet(GOLD_DIR / 'val.parquet')
-    test  = pd.read_parquet(GOLD_DIR / 'test.parquet')
+    CHUNK_SIZE = 30_000
+    MAX_TRAIN  = 300_000
+    MAX_VAL    = MAX_TRAIN // 3
+    MAX_TEST   = MAX_TRAIN // 3
+
+    def _read_chunked(path, max_rows, class_col='class'):
+        pf    = pq.ParquetFile(str(path))
+        total = pf.metadata.num_rows
+        rate  = (max_rows / total) if (max_rows and total > max_rows) else 1.0
+        chunks, rows = [], 0
+        for batch in pf.iter_batches(batch_size=CHUNK_SIZE):
+            chunk = batch.to_pandas()
+            if rate < 1.0 and class_col in chunk.columns:
+                chunk = (chunk.groupby(class_col, group_keys=False)
+                              .apply(lambda g: g.sample(
+                                  n=max(1, round(len(g) * rate)), random_state=42))
+                              .reset_index(drop=True))
+            elif rate < 1.0:
+                chunk = chunk.sample(n=max(1, round(len(chunk) * rate)), random_state=42)
+            chunks.append(chunk)
+            rows += len(chunk)
+            if max_rows and rows >= max_rows:
+                break
+        result = pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
+        tag = f'{total:,} -> {len(result):,} (amostrado)' if rate < 1.0 else f'{len(result):,}'
+        print(f'  {path.name}: {tag} linhas')
+        return result
+
+    val   = _read_chunked(GOLD_DIR / 'val.parquet',   MAX_VAL)
+    test  = _read_chunked(GOLD_DIR / 'test.parquet',  MAX_TEST)
+    train = _read_chunked(GOLD_DIR / 'train.parquet', MAX_TRAIN)
     print(f'  train={len(train):,}  val={len(val):,}  test={len(test):,}')
 
     feat_cols = [c for c in train.columns if c.endswith('_norm')]
@@ -99,14 +132,19 @@ def load_data():
         feat_cols = [c for c in sensor_cols if c in train.columns]
     print(f'  Features: {len(feat_cols)}')
 
-    # Mesmo split estratificado dos scripts de treino
+    # Split estratificado quando val/test nao tem todas as classes
     all_data      = pd.concat([train, val, test], ignore_index=True)
     classes_all   = set(all_data['class'].unique())
     classes_train = set(train['class'].unique())
-    missing       = classes_all - classes_train
+    classes_val   = set(val['class'].unique())
+    classes_test  = set(test['class'].unique())
+    missing = ((classes_all - classes_train)
+               | (classes_all - classes_val)
+               | (classes_all - classes_test))
 
     if missing:
-        print(f'  [INFO] Aplicando split ESTRATIFICADO (mesmo do treino)...')
+        faltando = sorted(int(c) for c in missing)
+        print(f'  [INFO] Aplicando split ESTRATIFICADO (classes ausentes: {faltando})...')
         y_all = all_data['class'].values.astype('int32')
         X_all = all_data[feat_cols].values.astype('float32')
 
@@ -114,6 +152,7 @@ def load_data():
             X_all, y_all, test_size=0.15, random_state=42, stratify=y_all)
         X_train, X_val, y_train, y_val = train_test_split(
             X_tmp, y_tmp, test_size=round(0.15/0.85, 6), random_state=42, stratify=y_tmp)
+        print(f'  Estratificado: train={len(y_train):,} val={len(y_val):,} test={len(y_test):,}')
     else:
         X_train = train[feat_cols].values.astype('float32')
         y_train = train['class'].values.astype('int32')
@@ -125,7 +164,7 @@ def load_data():
     def _clean(X):
         bad = int((~np.isfinite(X)).sum())
         if bad:
-            print(f'  [AVISO] {bad} NaN/Inf → substituídos por 0')
+            print(f'  [AVISO] {bad} NaN/Inf substituidos por 0')
         return np.where(np.isfinite(X), X, np.float32(0.0)).astype('float32')
 
     return (_clean(X_train), y_train,
@@ -385,17 +424,21 @@ def main():
         else:
             classes = np.arange(proba_val.shape[1])
 
-        # Para XGBoost: detectar remapeamento de labels contíguos → originais
-        # O XGB é treinado com y remapeado para [0..n-1]; clf.classes_ reflete isso.
-        # As colunas de predict_proba estão ordenadas pelos labels remapeados, que
-        # correspondem à ordem crescente dos labels ORIGINAIS — então basta substituir.
+        # Para XGBoost: detectar remapeamento de labels contiguos -> originais
+        # O XGB treina com y remapeado para [0..n-1]; clf.classes_ pode nao refletir
+        # os labels originais. So remapeia quando o NUMERO de classes for igual
+        # (se diferente, o modelo foi treinado com menos classes que os dados atuais).
         if mname == 'xgb':
             clf_classes_sorted = np.array(sorted(int(c) for c in classes))
             data_classes       = np.array(sorted(int(c) for c in np.unique(y_val)))
-            if not np.array_equal(clf_classes_sorted, data_classes):
+            if (len(clf_classes_sorted) == len(data_classes)
+                    and not np.array_equal(clf_classes_sorted, data_classes)):
                 classes = data_classes
                 print(f'  [XGB] Remapeamento detectado: modelo={list(clf_classes_sorted)} '
-                      f'→ originais={list(classes)}')
+                      f'-> originais={list(classes)}')
+            elif len(clf_classes_sorted) != len(data_classes):
+                print(f'  [XGB] Modelo tem {len(clf_classes_sorted)} classes, '
+                      f'dados tem {len(data_classes)} - usando classes do modelo')
 
         print(f'  Classes: {list(classes)}')
 

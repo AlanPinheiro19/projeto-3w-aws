@@ -95,42 +95,51 @@ def parse_args():
 
 # ── Carregamento de dados ──────────────────────────────────────────────────────
 def load_data():
-    from sklearn.model_selection import train_test_split
+    """Carrega apenas test.parquet (amostra estratificada) para analise SHAP.
+    Train e val NAO sao necessarios (apenas X_test e retornado).
+    Leitura em chunks evita OOM — SHAP precisa de no maximo ~2000 amostras.
+    """
+    import pyarrow.parquet as pq
 
-    print('Carregando dados Gold...')
-    train = pd.read_parquet(GOLD_DIR / 'train.parquet')
-    val   = pd.read_parquet(GOLD_DIR / 'val.parquet')
-    test  = pd.read_parquet(GOLD_DIR / 'test.parquet')
-    print(f'  train={len(train):,}  val={len(val):,}  test={len(test):,}')
+    MAX_TEST   = 20_000   # muito acima dos n_per_class=200 usados no SHAP
+    CHUNK_SIZE = 30_000
 
-    feat_cols = [c for c in train.columns if c.endswith('_norm')]
+    print('Carregando dados Gold (apenas test.parquet, amostra para SHAP)...')
+    pf    = pq.ParquetFile(str(GOLD_DIR / 'test.parquet'))
+    total = pf.metadata.num_rows
+    rate  = (MAX_TEST / total) if total > MAX_TEST else 1.0
+    chunks, rows = [], 0
+    for batch in pf.iter_batches(batch_size=CHUNK_SIZE):
+        chunk = batch.to_pandas()
+        if rate < 1.0 and 'class' in chunk.columns:
+            chunk = (chunk.groupby('class', group_keys=False)
+                          .apply(lambda g: g.sample(
+                              n=max(1, round(len(g) * rate)), random_state=42))
+                          .reset_index(drop=True))
+        chunks.append(chunk)
+        rows += len(chunk)
+        if rows >= MAX_TEST:
+            break
+    test = pd.concat(chunks, ignore_index=True) if chunks else pd.DataFrame()
+    print(f'  test={len(test):,} linhas carregadas (de {total:,} totais)')
+
+    feat_cols = [c for c in test.columns if c.endswith('_norm')]
     if not feat_cols:
-        feat_cols = [c for c in SENSOR_COLUMNS if c in train.columns]
+        feat_cols = [c for c in SENSOR_COLUMNS if c in test.columns]
 
-    all_data      = pd.concat([train, val, test], ignore_index=True)
-    classes_all   = set(all_data['class'].unique())
-    classes_train = set(train['class'].unique())
+    if 'class' not in test.columns:
+        raise KeyError("Coluna 'class' nao encontrada em test.parquet")
 
-    if classes_all - classes_train:
-        print('  → Split estratificado (mesmo do treino)...')
-        y_all = all_data['class'].values.astype('int32')
-        X_all = all_data[feat_cols].values.astype('float32')
-        X_tmp, X_test, y_tmp, y_test = train_test_split(
-            X_all, y_all, test_size=0.15, random_state=42, stratify=y_all)
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_tmp, y_tmp, test_size=round(0.15/0.85, 6), random_state=42, stratify=y_tmp)
-    else:
-        X_train = train[feat_cols].values.astype('float32')
-        y_train = train['class'].values.astype('int32')
-        X_val   = val[feat_cols].values.astype('float32')
-        y_val   = val['class'].values.astype('int32')
-        X_test  = test[feat_cols].values.astype('float32')
-        y_test  = test['class'].values.astype('int32')
+    X_test = test[feat_cols].values.astype('float32')
+    y_test = test['class'].values.astype('int32')
+
+    classes = sorted(np.unique(y_test))
+    print(f'  Classes no teste: {classes}')
 
     def _clean(X):
         bad = int((~np.isfinite(X)).sum())
         if bad:
-            print(f'  [AVISO] {bad} NaN/Inf → 0')
+            print(f'  [AVISO] {bad} NaN/Inf → substituidos por 0')
         return np.where(np.isfinite(X), X, np.float32(0.0)).astype('float32')
 
     return (_clean(X_test), y_test, feat_cols)   # SHAP no conjunto de teste

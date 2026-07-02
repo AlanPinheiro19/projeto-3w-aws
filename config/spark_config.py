@@ -81,7 +81,7 @@ GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 # -----------------------------------------------------------------------------
 
 DEFAULT_CLASSES = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-DEFAULT_WELLS = ['00002', '00004', '00006']
+DEFAULT_WELLS = ['00001', '00002', '00006']  # Pocos com maior completude de sensores
 REQUEST_TIMEOUT = 60
 RATE_LIMIT_DELAY = 0.3
 

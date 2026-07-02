@@ -67,44 +67,74 @@ EVENT_LABELS = {
 # ── CLI ───────────────────────────────────────────────────────────────────────
 def parse_args():
     p = argparse.ArgumentParser(description='Random Forest baseline — 3W dataset')
-    p.add_argument('--n-estimators', type=int, default=150,
-                   help='Número de árvores (default: 150)')
-    p.add_argument('--max-depth', type=int, default=None,
-                   help='Profundidade máxima (default: None = irrestrito)')
+    p.add_argument('--n-estimators', type=int, default=100,
+                   help='Numero de arvores (default: 100)')
+    p.add_argument('--max-depth', type=int, default=20,
+                   help='Profundidade maxima (default: 20 — limita uso de RAM)')
     p.add_argument('--min-samples-leaf', type=int, default=5,
                    help='Min samples por folha (default: 5)')
     p.add_argument('--n-jobs', type=int, default=-1,
                    help='Threads paralelas (default: -1 = todos os cores)')
-    p.add_argument('--max-samples', type=int, default=500_000,
-                   help='Máx amostras de treino (default: 500000; 0 = sem limite)')
+    p.add_argument('--max-samples', type=int, default=300_000,
+                   help='Max amostras de treino (default: 300000)')
     p.add_argument('--verbose', action='store_true')
     return p.parse_args()
 
 # ── Carregamento ──────────────────────────────────────────────────────────────
-def load_data(max_samples: int = 500_000):
+def load_data(max_samples: int = 300_000):
+    """Carrega os splits Gold em chunks com amostragem estratificada por classe.
+
+    Leitura em chunks (pyarrow iter_batches) evita carregar o arquivo inteiro
+    na RAM de uma vez. Para cada chunk, amostra proporcionalmente por classe,
+    preservando a distribuicao de eventos mesmo em dados temporais.
+
+    max_samples: limite de linhas para train (val e test usam max_samples//3).
+    """
     import pyarrow.parquet as pq
 
-    print('Carregando dados Gold...')
-    print(f'  Diretório Gold: {GOLD_DIR}')
+    print('Carregando dados Gold (leitura em chunks com amostragem estratificada)...')
+    print(f'  Diretorio Gold: {GOLD_DIR}')
 
-    def _read_limited(path, max_rows):
-        """Lê apenas max_rows linhas do parquet sem carregar o arquivo inteiro na RAM."""
-        if max_rows:
-            pf = pq.ParquetFile(str(path))
-            total = pf.metadata.num_rows
-            if total > max_rows:
-                batch = next(pf.iter_batches(batch_size=max_rows))
-                df = batch.to_pandas()
-                print(f'  [SAMPLING] {path.name}: {total:,} → {len(df):,} linhas lidas do disco')
-                return df
-        return pd.read_parquet(path)
+    CHUNK_SIZE = 30_000   # linhas por batch de leitura
 
-    val_samples  = max_samples // 5 if max_samples else 0   # 20% do train
-    test_samples = max_samples // 5 if max_samples else 0
+    def _read_chunked(path, max_rows, class_col='class'):
+        """Le parquet em chunks e amostra estratificadamente para caber em max_rows."""
+        pf     = pq.ParquetFile(str(path))
+        total  = pf.metadata.num_rows
+        rate   = (max_rows / total) if (max_rows and total > max_rows) else 1.0
+        chunks = []
+        rows   = 0
+        for batch in pf.iter_batches(batch_size=CHUNK_SIZE):
+            chunk = batch.to_pandas()
+            if rate < 1.0 and class_col in chunk.columns:
+                chunk = (chunk.groupby(class_col, group_keys=False)
+                              .apply(lambda g: g.sample(
+                                  n=max(1, round(len(g) * rate)),
+                                  random_state=42))
+                              .reset_index(drop=True))
+            elif rate < 1.0:
+                chunk = chunk.sample(n=max(1, round(len(chunk) * rate)),
+                                     random_state=42)
+            chunks.append(chunk)
+            rows += len(chunk)
+            if max_rows and rows >= max_rows:
+                break
+        if not chunks:
+            return pd.DataFrame()
+        result = pd.concat(chunks, ignore_index=True)
+        if max_rows and total > max_rows:
+            print(f'  [SAMPLING] {path.name}: {total:,} -> {len(result):,} '
+                  f'(estratificado por classe)')
+        else:
+            print(f'  {path.name}: {len(result):,} linhas')
+        return result
 
-    train = _read_limited(GOLD_DIR / 'train.parquet', max_samples)
-    val   = _read_limited(GOLD_DIR / 'val.parquet',   val_samples)
-    test  = _read_limited(GOLD_DIR / 'test.parquet',  test_samples)
+    val_max  = max_samples // 3
+    test_max = max_samples // 3
+
+    val   = _read_chunked(GOLD_DIR / 'val.parquet',   val_max)
+    test  = _read_chunked(GOLD_DIR / 'test.parquet',  test_max)
+    train = _read_chunked(GOLD_DIR / 'train.parquet', max_samples)
     print(f'  train={len(train):,}  val={len(val):,}  test={len(test):,}')
 
     # ── Fallback: se splits estão vazios, faz split manual ───────────────────
@@ -145,16 +175,23 @@ def load_data(max_samples: int = 500_000):
         print(f'  [AVISO] Sem features _norm — usando {len(feat_cols)} sensores brutos')
     print(f'  Features: {len(feat_cols)}')
 
-    # ── Fix: split estratificado quando o split temporal deixa classes fora do treino ──
+    # ── Fix: split estratificado quando val/test nao tem todas as classes ──
+    # (split temporal concentra eventos em janelas especificas — val/test podem
+    # ficar com classes ausentes, tornando class_weight=balanced disfuncional)
     all_data      = pd.concat([train, val, test], ignore_index=True)
     classes_all   = set(all_data['class'].unique())
     classes_train = set(train['class'].unique())
-    missing       = classes_all - classes_train
+    classes_val   = set(val['class'].unique())
+    classes_test  = set(test['class'].unique())
+    missing = ((classes_all - classes_train)
+               | (classes_all - classes_val)
+               | (classes_all - classes_test))
 
     if missing:
-        print(f'\n  [AVISO] Split temporal excluiu {len(missing)} classe(s) do treino: '
-              f'{sorted(int(c) for c in missing)}')
-        print('  → Aplicando split ESTRATIFICADO por classe (15% val, 15% test)...')
+        faltando_val  = sorted(int(c) for c in classes_all - classes_val)
+        faltando_test = sorted(int(c) for c in classes_all - classes_test)
+        print(f'\n  [AVISO] Classes ausentes: val={faltando_val}  test={faltando_test}')
+        print('  Aplicando split ESTRATIFICADO por classe (15% val, 15% test)...')
         y_all = all_data['class'].values.astype('int32')
         X_all = all_data[feat_cols].values.astype('float32')
 

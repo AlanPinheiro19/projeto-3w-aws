@@ -1,42 +1,44 @@
 === RANDOM FOREST BASELINE — 3W DATASET ===
 
-n_estimators     : 150
-max_depth        : None
+n_estimators     : 100
+max_depth        : 20
 min_samples_leaf : 5
 class_weight     : balanced
 
 ── VALIDAÇÃO ──
-Acurácia   : 0.9963
-F1 weighted: 0.9972
-F1 macro   : 0.9099
+Acurácia   : 0.9829
+F1 weighted: 0.9855
+F1 macro   : 0.8038
 
                   precision    recall  f1-score   support
 
-          Normal       1.00      1.00      1.00    875782
-      BSW Abrupt       1.00      1.00      1.00     26209
-    DHSV Closure       0.31      0.91      0.46      1908
-Flow Instability       1.00      1.00      1.00    171158
- PCK Restriction       1.00      1.00      1.00     10544
-         Scaling       1.00      1.00      1.00     37023
+          Normal       1.00      0.98      0.99     61218
+      BSW Abrupt       1.00      1.00      1.00      2260
+    DHSV Closure       0.15      0.93      0.26        89
+ Severe Slugging       0.48      0.73      0.58       150
+Flow Instability       0.95      0.98      0.96      7663
+ PCK Restriction       0.74      0.97      0.84       410
+         Scaling       1.00      1.00      1.00      3214
 
-        accuracy                           1.00   1122624
-       macro avg       0.88      0.98      0.91   1122624
-    weighted avg       1.00      1.00      1.00   1122624
+        accuracy                           0.98     75004
+       macro avg       0.76      0.94      0.80     75004
+    weighted avg       0.99      0.98      0.99     75004
 
 ── TESTE ──
-Acurácia   : 0.9963
-F1 weighted: 0.9972
-F1 macro   : 0.9113
+Acurácia   : 0.9833
+F1 weighted: 0.9858
+F1 macro   : 0.8142
 
                   precision    recall  f1-score   support
 
-          Normal       1.00      1.00      1.00    875780
-      BSW Abrupt       1.00      1.00      1.00     26209
-    DHSV Closure       0.32      0.91      0.47      1908
-Flow Instability       1.00      1.00      1.00    171158
- PCK Restriction       1.00      1.00      1.00     10545
-         Scaling       1.00      1.00      1.00     37022
+          Normal       1.00      0.98      0.99     61218
+      BSW Abrupt       1.00      1.00      1.00      2260
+    DHSV Closure       0.16      0.94      0.27        89
+ Severe Slugging       0.54      0.79      0.64       151
+Flow Instability       0.95      0.98      0.96      7663
+ PCK Restriction       0.74      0.97      0.84       409
+         Scaling       1.00      1.00      1.00      3214
 
-        accuracy                           1.00   1122622
-       macro avg       0.89      0.98      0.91   1122622
-    weighted avg       1.00      1.00      1.00   1122622
+        accuracy                           0.98     75004
+       macro avg       0.77      0.95      0.81     75004
+    weighted avg       0.99      0.98      0.99     75004

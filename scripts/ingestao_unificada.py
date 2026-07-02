@@ -378,7 +378,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--wells", nargs="+", default=DEFAULT_WELLS,
-        metavar="ID", help="IDs dos pocos (default: 00002 00004 00006)"
+        metavar="ID", help="IDs dos pocos (default: 00001 00002 00006)"
     )
     parser.add_argument(
         "--all-wells", action="store_true",

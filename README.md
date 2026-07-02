@@ -46,7 +46,7 @@ Autor: Alan Pinheiro da Silva | 2026
 
 Este projeto desenvolve um sistema automatizado de detecção e classificação de eventos indesejáveis em poços de petróleo offshore, utilizando o dataset público [3W da Petrobras](https://github.com/petrobras/3W) como base de dados. O pipeline processa séries temporais de 8 sensores de processo e classifica 6 classes de eventos com F1-macro de **96,2%** (LightGBM).
 
-**Escopo de dados:** poços WELL-00002, WELL-00004 e WELL-00006 — 7,5 milhões de registros, 6 classes de eventos.
+**Escopo de dados:** poços WELL-00001, WELL-00002 e WELL-00006 — selecionados por maior completude de sensores — 6 classes de eventos.
 
 ---
 
@@ -252,14 +252,14 @@ aws s3 sync /opt/projeto-3w/data/gold/ s3://tcc-3w-datalake-raw/gold/
 | 0 | Normal | ✅ 334 arquivos |
 | 1 | Abrupt Increase of BSW | ✅ 3 arquivos |
 | 2 | Spurious Closure of DHSV | ✅ 1 arquivo |
-| 3 | Severe Slugging | ❌ Ausente nos poços 00002/00004/00006 |
-| 4 | Flow Instability | ✅ 155 arquivos |
-| 5 | Rapid Productivity Loss | ❌ Ausente nos poços 00002/00004/00006 |
-| 6 | Quick Restriction in PCK | ✅ 6 arquivos |
-| 7 | Scaling in PCK | ✅ 2 arquivos |
-| 8 | Hydrate in Production Line | ❌ Ausente nos poços 00002/00004/00006 |
+| 3 | Severe Slugging | ✅ WELL-00001 (novo escopo — ausente na versão anterior) |
+| 4 | Flow Instability | ✅ 148 arquivos (00001=36, 00002=112) |
+| 5 | Rapid Productivity Loss | ❌ Ausente nos poços 00001/00002/00006 |
+| 6 | Quick Restriction in PCK | ✅ 3 arquivos (00002) |
+| 7 | Scaling in PCK | ✅ presente (00001 + 00006) |
+| 8 | Hydrate in Production Line | ❌ Ausente nos poços 00001/00002/00006 |
 
-As classes 3, 5 e 8 não ocorrem nos três poços selecionados. A expansão para outros poços é listada como trabalho futuro.
+Os poços 00001, 00002 e 00006 foram selecionados por maior completude de sensores. A inclusão do WELL-00001 incorpora a Classe 3 (Severe Slugging), ausente no escopo anterior (00002/00004/00006).
 
 ---
 

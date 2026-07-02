@@ -25,12 +25,15 @@ models/*.h5
 credentials.json
 aws-keys.json
 # Terraform — segredos e estado (NUNCA versionar)
-terraform/*.tfvars
-terraform/.terraform/
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
-terraform/.terraform.lock.hcl
-terraform/override.tf
+
+# Documentos acadêmicos (privados até defesa pública)
+monografia*.docx
+monografia*.pdf
+cronograma*.docx
+relatorio_status*.docx
+guia_deploy*.docx
+~$*.docx
+tf
 terraform/*_override.tf
 
 # Logs de containers
@@ -46,3 +49,29 @@ env/
 
 # VS Code (opcional)
 .vscode/
+
+# Documentos acadêmicos (privados até defesa pública)
+monografia*.docx
+monografia*.pdf
+cronograma*.docx
+relatorio_status*.docx
+guia_deploy*.docx
+~$*.docx
+
+# Temporarios Windows
+~$*
+
+# Pastas de sessao Claude
+.claude/
+
+# Terraform state local
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfvars
+
+# CVs pessoais
+CV_*.docx
+PROFILE_README.md
+
+# Projeto separado
+nlp-petroleo-rag/

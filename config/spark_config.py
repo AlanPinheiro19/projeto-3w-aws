@@ -1,10 +1,10 @@
 """
-Module: spark_config.py
-Description: Configuracoes e constantes para o ambiente local de desenvolvimento 3W.
-             O SparkSession e criado sob demanda (lazy) para evitar falhas de import
-             em scripts que nao utilizam Spark (ex: scripts de ingestao via requests).
-Author: Alan Pinheiro da Silva
-Date: 2025-06-12
+Modulo: spark_config.py
+Descricao: Configuracoes e constantes para o ambiente local de desenvolvimento 3W.
+           O SparkSession e criado sob demanda (lazy) para evitar falhas de import
+           em scripts que nao utilizam Spark (ex: scripts de ingestao via requests).
+Autor: Alan Pinheiro da Silva
+Data: 2025-06-12
 """
 
 import logging

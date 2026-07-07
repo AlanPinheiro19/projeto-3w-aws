@@ -8,7 +8,6 @@ Programa: eEDB-007 | 2026
 
 Execução:
     pip install streamlit plotly pandas numpy joblib
-    python download_assets.py   # baixa logos PECE/USP (apenas primeira vez)
     streamlit run app.py
 """
 
@@ -36,20 +35,34 @@ def img_b64(path: Path, fallback: str = "") -> str:
     return fallback
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Paleta PECE / USP — Dark Theme
+# Configuração da página — deve ser o primeiro comando Streamlit do script
 # ─────────────────────────────────────────────────────────────────────────────
-PECE_NAVY       = "#003087"
-PECE_BLUE       = "#1565C0"
-PECE_LIGHT_BLUE = "#2979FF"
-USP_GOLD        = "#EDB931"
-BG_DARK         = "#0D1B2A"
-BG_CARD         = "#142136"
-BG_BORDER       = "#1E3A5F"
-TEXT_PRIMARY    = "#E2E8F0"
-TEXT_MUTED      = "#94A3B8"
-SUCCESS         = "#10B981"
-DANGER          = "#EF4444"
-WARNING         = "#F59E0B"
+st.set_page_config(
+    page_title="3W Offshore | PECE USP",
+    page_icon="🛢️",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Paleta PECE / USP — Dark Theme
+# Cores compartilhadas: fonte única é .streamlit/config.toml [theme]
+# ─────────────────────────────────────────────────────────────────────────────
+PECE_LIGHT_BLUE = st.get_option("theme.primaryColor")
+BG_DARK         = st.get_option("theme.backgroundColor")
+BG_CARD         = st.get_option("theme.secondaryBackgroundColor")
+TEXT_PRIMARY    = st.get_option("theme.textColor")
+
+# Extensões de identidade visual — sem equivalente no tema nativo do Streamlit
+PECE_NAVY  = "#003087"
+PECE_BLUE  = "#1565C0"
+USP_GOLD   = "#EDB931"
+BG_BORDER  = "#1E3A5F"
+BG_SIDEBAR = "#0A1220"
+TEXT_MUTED = "#94A3B8"
+SUCCESS    = "#0EA371"
+DANGER     = "#D9483F"
+WARNING    = "#D9A233"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Caminhos
@@ -59,21 +72,24 @@ MODELS = BASE / "models"
 DATA   = BASE / "data" / "gold"
 ASSETS = BASE / "assets"
 
-# SVGs fallback (quando download_assets.py ainda não foi executado)
+# SVGs fallback (usados quando não há PNGs reais em assets/)
 _SVG_PECE = (
     "data:image/svg+xml;base64," + base64.b64encode(
-        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 50'>"
-        b"<text x='4' y='32' font-family='Arial' font-size='26' font-weight='900'"
-        b" fill='white' letter-spacing='6'>PECE</text>"
-        b"<text x='4' y='46' font-family='Arial' font-size='8'"
-        b" fill='rgba(255,255,255,0.7)'>ESCOLA POLITECNICA USP</text></svg>"
+        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 54'>"
+        b"<text x='2' y='30' font-family='Arial' font-size='27' font-weight='900'"
+        b" fill='white' letter-spacing='5'>PECE</text>"
+        b"<rect x='2' y='36' width='150' height='2.5' rx='1.25' fill='#EDB931'/>"
+        b"<text x='2' y='50' font-family='Arial' font-size='8.5'"
+        b" fill='rgba(255,255,255,0.75)' letter-spacing='0.5'>ESCOLA POLITECNICA USP</text></svg>"
     ).decode()
 )
 _SVG_USP = (
     "data:image/svg+xml;base64," + base64.b64encode(
-        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 40'>"
-        b"<text x='4' y='32' font-family='Arial' font-size='28' font-weight='900'"
-        b" fill='white'>USP</text></svg>"
+        b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 50'>"
+        b"<text x='2' y='32' font-family='Arial' font-size='27' font-weight='900'"
+        b" fill='white' letter-spacing='2'>USP</text>"
+        b"<text x='2' y='46' font-family='Arial' font-size='8'"
+        b" fill='rgba(255,255,255,0.75)' letter-spacing='0.3'>UNIVERSIDADE DE SAO PAULO</text></svg>"
     ).decode()
 )
 _SVG_MINERVA = (
@@ -85,26 +101,19 @@ _SVG_MINERVA = (
     ).decode()
 )
 
-# Amazon Machine Learning logo — caixas empilhadas estilo AWS (laranja)
-_SVG_AWS_ML = (
+# Badge "Machine Learning" — ícone genérico (engrenagem/alvo), sem imitar logos de terceiros
+_SVG_ML_BADGE = (
     "data:image/svg+xml;base64," + base64.b64encode((
-        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 210 64'>"
-        # fundo azul com borda dourada
-        "<rect width='210' height='64' rx='9' fill='#1565C0' stroke='#EDB931' stroke-width='2.5'/>"
-        # ícone: 3×3 grid de cubos laranja (AWS ML style)
-        "<rect x='9'  y='8'  width='14' height='14' rx='2' fill='#2979FF'/>"
-        "<rect x='25' y='8'  width='14' height='14' rx='2' fill='#2979FF'/>"
-        "<rect x='41' y='8'  width='14' height='14' rx='2' fill='#2979FF'/>"
-        "<rect x='9'  y='25' width='14' height='14' rx='2' fill='#2979FF'/>"
-        "<rect x='25' y='25' width='14' height='14' rx='2' fill='#2979FF'/>"
-        "<rect x='41' y='25' width='14' height='14' rx='2' fill='#2979FF'/>"
-        "<rect x='9'  y='42' width='14' height='14' rx='2' fill='#2979FF'/>"
-        "<rect x='25' y='42' width='14' height='14' rx='2' fill='#2979FF'/>"
-        "<rect x='41' y='42' width='14' height='14' rx='2' fill='#2979FF'/>"
-        # texto
-        "<text x='66' y='20' font-family='Arial' font-size='9' fill='rgba(255,255,255,0.8)'>Amazon</text>"
-        "<text x='66' y='39' font-family='Arial' font-size='15' font-weight='700' fill='white'>Machine</text>"
-        "<text x='66' y='57' font-family='Arial' font-size='15' font-weight='700' fill='white'>Learning</text>"
+        "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 64'>"
+        "<rect width='200' height='64' rx='10' fill='#1565C0' stroke='#EDB931' stroke-width='2'/>"
+        "<circle cx='34' cy='32' r='16' fill='none' stroke='#EDB931' stroke-width='2.5'/>"
+        "<circle cx='34' cy='32' r='5' fill='#EDB931'/>"
+        "<line x1='34' y1='14' x2='34' y2='21' stroke='#EDB931' stroke-width='2.5'/>"
+        "<line x1='34' y1='43' x2='34' y2='50' stroke='#EDB931' stroke-width='2.5'/>"
+        "<line x1='16' y1='32' x2='23' y2='32' stroke='#EDB931' stroke-width='2.5'/>"
+        "<line x1='45' y1='32' x2='52' y2='32' stroke='#EDB931' stroke-width='2.5'/>"
+        "<text x='62' y='28' font-family='Arial' font-size='12' font-weight='700' fill='white'>Machine Learning</text>"
+        "<text x='62' y='45' font-family='Arial' font-size='10' fill='rgba(255,255,255,0.75)'>Pipeline Preditivo</text>"
         "</svg>"
     ).encode()).decode()
 )
@@ -112,7 +121,7 @@ _SVG_AWS_ML = (
 LOGO_PECE    = img_b64(ASSETS / "logo-pece-white.png", _SVG_PECE)
 LOGO_USP     = img_b64(ASSETS / "logo-usp.png",        _SVG_USP)
 MINERVA_ICON = img_b64(ASSETS / "minerva.png",         _SVG_MINERVA)
-AWS_ML_LOGO  = img_b64(ASSETS / "amazon-ml.png",       _SVG_AWS_ML)
+ML_BADGE     = img_b64(ASSETS / "ml-badge.png",         _SVG_ML_BADGE)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Constantes do domínio
@@ -142,16 +151,6 @@ PLOTLY_DARK = dict(
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Configuração da página
-# ─────────────────────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="3W Offshore | PECE USP",
-    page_icon="🛢️",
-    layout="wide",
-    initial_sidebar_state="collapsed",
-)
-
-# ─────────────────────────────────────────────────────────────────────────────
 # CSS Global — Dark Theme PECE/USP
 # ─────────────────────────────────────────────────────────────────────────────
 st.markdown(f"""
@@ -160,38 +159,34 @@ st.markdown(f"""
     background-color: {BG_DARK} !important;
   }}
   [data-testid="stSidebar"] {{
-    background-color: #0A1220 !important;
+    background-color: {BG_SIDEBAR} !important;
     border-right: 1px solid {BG_BORDER};
   }}
-  .stTabs [data-baseweb="tab-list"] {{
-    background: {BG_CARD};
-    border-radius: 10px;
-    padding: 4px 6px;
+  [data-testid="stSidebar"] [data-testid="stRadio"] > div {{
     gap: 4px;
-    border: 1px solid {BG_BORDER};
   }}
-  .stTabs [data-baseweb="tab"] {{
+  [data-testid="stSidebar"] [data-testid="stRadio"] label {{
     background: transparent;
-    color: {TEXT_MUTED};
-    border-radius: 7px;
-    padding: 8px 18px;
-    font-weight: 600;
-    font-size: 0.87rem;
+    border-radius: 8px;
+    padding: 9px 12px;
+    width: 100%;
     transition: all 0.2s;
-    border: none;
+    border: 1px solid transparent;
   }}
-  .stTabs [data-baseweb="tab"]:hover {{
-    color: {TEXT_PRIMARY};
+  [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {{
     background: {BG_BORDER};
   }}
-  .stTabs [aria-selected="true"] {{
-    background: linear-gradient(135deg, {PECE_BLUE}, {PECE_LIGHT_BLUE}) !important;
-    color: white !important;
+  [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {{
+    background: linear-gradient(135deg, {PECE_BLUE}, {PECE_LIGHT_BLUE});
+    border-color: {PECE_LIGHT_BLUE};
     box-shadow: 0 2px 8px rgba(21,101,192,0.5);
   }}
-  .stTabs [data-baseweb="tab-panel"] {{
-    background: transparent;
-    padding-top: 16px;
+  [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p {{
+    color: white !important;
+    font-weight: 700;
+  }}
+  [data-testid="stSidebar"] [data-testid="stRadio"] div[data-baseweb="radio"] {{
+    display: none;
   }}
   [data-testid="stMetric"] {{
     background: {BG_CARD};
@@ -353,7 +348,7 @@ st.markdown(f"""
       </div>
     </div>
     <div style="flex-shrink:0;">
-      <img src="{AWS_ML_LOGO}" style="height:60px;border-radius:10px;
+      <img src="{ML_BADGE}" style="height:60px;border-radius:10px;
            border:2px solid {USP_GOLD};
            box-shadow:0 0 14px rgba(237,185,49,0.45),0 2px 8px rgba(0,0,0,0.5);" />
     </div>
@@ -363,21 +358,41 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ABAS
+# NAVEGAÇÃO — MENU NA SIDEBAR
 # ─────────────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "🏠  Visão Geral",
-    "🔄  Pipeline ETL",
-    "📊  Exploratória",
-    "🤖  Resultados ML",
-    "🔍  SHAP",
-    "🎯  Demo — Predição",
-])
+PAGES = {
+    "visao_geral":   ("🏠", "Visão Geral"),
+    "pipeline_etl":  ("🔄", "Pipeline ETL"),
+    "exploratoria":  ("📊", "Exploratória"),
+    "resultados_ml": ("🤖", "Resultados ML"),
+    "shap":          ("🔍", "SHAP"),
+    "demo":          ("🎯", "Demo — Predição"),
+}
 
-# ── ABA 1: VISÃO GERAL ────────────────────────────────────────────────────────
-with tab1:
-    kpis = [("7,5 M","Registros"), ("3","Poços"), ("6","Classes"),
-            ("136","Features Gold"), ("96,2%","F1-Macro LGB"), ("99,9%","Acurácia LGB")]
+with st.sidebar:
+    st.markdown(f"""
+    <div style="text-align:center;padding:6px 0 20px 0;">
+      <img src="{LOGO_PECE}" style="height:36px;" /><br>
+      <img src="{LOGO_USP}" style="height:28px;margin-top:10px;filter:brightness(0) invert(1);" />
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown(
+        f"<div style='font-size:0.72rem;color:{TEXT_MUTED};text-transform:uppercase;"
+        f"letter-spacing:0.08em;margin-bottom:6px;padding-left:4px;'>Navegação</div>",
+        unsafe_allow_html=True,
+    )
+    nav_page = st.radio(
+        "Navegação",
+        options=list(PAGES.keys()),
+        format_func=lambda k: f"{PAGES[k][0]}  {PAGES[k][1]}",
+        key="nav_page",
+        label_visibility="collapsed",
+    )
+
+# ── VISÃO GERAL ───────────────────────────────────────────────────────────────
+def render_visao_geral():
+    kpis = [("9,2 M","Registros"), ("3","Poços"), ("7","Classes"),
+            ("136","Features Gold"), ("96,7%","F1-Macro LGB"), ("99,9%","Acurácia LGB")]
     cols = st.columns(len(kpis))
     for col, (val, label) in zip(cols, kpis):
         col.markdown(f'<div class="kpi-card"><div class="kpi-label">{label}</div>'
@@ -412,9 +427,9 @@ with tab1:
     st.divider()
     st.markdown(f"<h4 style='color:{USP_GOLD}'>🏆 Destaques</h4>", unsafe_allow_html=True)
     for col, (icon, model, f1, color, note) in zip(st.columns(3), [
-        ("🥇","LightGBM","96,2%", SUCCESS, "Acurácia 99,9% · is_unbalance=True"),
-        ("🥈","XGBoost","95,7%",  PECE_LIGHT_BLUE, "+5,7pp após threshold tuning"),
-        ("🥉","Random Forest","91,1%", WARNING, "150 árvores · class_weight=balanced"),
+        ("🥇","LightGBM","96,7%", SUCCESS, "Acurácia 99,9% · is_unbalance=True"),
+        ("🥈","XGBoost","93,2%",  PECE_LIGHT_BLUE, "+9,7pp após threshold tuning"),
+        ("🥉","Random Forest","89,4%", WARNING, "+8,4pp após threshold tuning"),
     ]):
         col.markdown(f"""
         <div style="background:{BG_CARD};border:1px solid {color}44;border-radius:10px;
@@ -424,8 +439,8 @@ with tab1:
           <div style="font-size:0.8rem;color:{TEXT_MUTED}">{note}</div>
         </div>""", unsafe_allow_html=True)
 
-# ── ABA 2: PIPELINE ETL ───────────────────────────────────────────────────────
-with tab2:
+# ── PIPELINE ETL ──────────────────────────────────────────────────────────────
+def render_pipeline_etl():
     st.markdown(f"<h3 style='color:{USP_GOLD}'>🔄 Arquitetura Medallion</h3>", unsafe_allow_html=True)
 
     p1, a1, p2, a2, p3, a3, p4 = st.columns([2,.3,2,.3,2,.3,2])
@@ -467,8 +482,8 @@ with tab2:
     c1.info("🔒 **GITHUB_TOKEN** sempre via variável de ambiente — nunca hardcoded")
     c2.info("📐 **Z-Score** fit exclusivamente no treino — sem data leakage")
 
-# ── ABA 3: EXPLORATÓRIA ───────────────────────────────────────────────────────
-with tab3:
+# ── EXPLORATÓRIA ──────────────────────────────────────────────────────────────
+def render_exploratoria():
     st.markdown(f"<h3 style='color:{USP_GOLD}'>📊 Análise Exploratória de Dados</h3>",
                 unsafe_allow_html=True)
 
@@ -521,8 +536,8 @@ with tab3:
         fts.update_layout(**PLOTLY_DARK, height=300, showlegend=False)
         st.plotly_chart(fts, use_container_width=True)
 
-# ── ABA 4: RESULTADOS ML ─────────────────────────────────────────────────────
-with tab4:
+# ── RESULTADOS ML ─────────────────────────────────────────────────────────────
+def render_resultados_ml():
     st.markdown(f"<h3 style='color:{USP_GOLD}'>🤖 Resultados dos Modelos ML</h3>",
                 unsafe_allow_html=True)
 
@@ -570,14 +585,14 @@ with tab4:
     c1, c2 = st.columns(2)
     c1.dataframe(pd.DataFrame({
         "Abordagem":   ["Temporal (descartado)","Estratificado (adotado)"],
-        "RF F1-Macro": ["24,5%","91,1%"],
+        "RF F1-Macro": ["24,5%","81,0%"],
         "Problema":    ["Classe 7 ausente no treino","—"],
     }), hide_index=True, use_container_width=True)
     c2.error("Divisão **temporal** excluiu a classe 7 do treino. "
-             "**StratifiedShuffleSplit** corrigiu: 24,5% → 91,1%.")
+             "**StratifiedShuffleSplit** corrigiu: 24,5% → 81,0%.")
 
-# ── ABA 5: SHAP ──────────────────────────────────────────────────────────────
-with tab5:
+# ── SHAP ───────────────────────────────────────────────────────────────────────
+def render_shap():
     st.markdown(f"<h3 style='color:{USP_GOLD}'>🔍 Interpretabilidade — SHAP TreeExplainer</h3>",
                 unsafe_allow_html=True)
 
@@ -597,7 +612,7 @@ with tab5:
             fg.update_layout(**PLOTLY_DARK, height=300, coloraxis_showscale=False,
                              yaxis=dict(autorange="reversed"))
             st.plotly_chart(fg, use_container_width=True)
-        st.caption("T-JUS-CKP: 69,6% · T-TPT: 30,4% · demais: 0% (100% NaN no Silver)")
+        st.caption("T-JUS-CKP: 59,4% · T-TPT: 40,6% · demais: 0% (100% NaN no Silver)")
 
     with col_s2:
         st.markdown("#### SHAP por Classe")
@@ -637,8 +652,8 @@ with tab5:
                       caption=img.stem.replace("shap_class_","").replace("_"," "),
                       use_container_width=True)
 
-# ── ABA 6: DEMO ──────────────────────────────────────────────────────────────
-with tab6:
+# ── DEMO — PREDIÇÃO ───────────────────────────────────────────────────────────
+def render_demo():
     st.markdown(f"<h3 style='color:{USP_GOLD}'>🎯 Demo — Predição ao Vivo com LightGBM</h3>",
                 unsafe_allow_html=True)
     st.markdown(f"""
@@ -656,8 +671,9 @@ with tab6:
         st.markdown(f"<div style='color:{USP_GOLD};font-weight:700;margin-bottom:8px'>"
                     f"Gerar dados de exemplo</div>", unsafe_allow_html=True)
         ev = st.selectbox("Evento a simular", [0,1,2,4,7],
-                          format_func=lambda x: CLASS_LABELS[x])
-        nr = st.slider("Pontos", 60, 200, 100, step=20)
+                          format_func=lambda x: CLASS_LABELS[x],
+                          key="demo_evento_select")
+        nr = st.slider("Pontos", 60, 200, 100, step=20, key="demo_n_rows")
         if st.button("⬇️ Gerar CSV de exemplo", use_container_width=True, type="primary"):
             sample = generate_sample_csv(nr, ev)
             st.download_button("💾 Baixar sample_demo.csv",
@@ -665,7 +681,8 @@ with tab6:
                                file_name="sample_demo.csv", mime="text/csv",
                                use_container_width=True)
     with col_up:
-        uploaded = st.file_uploader("📂 CSV (timestamp, T-JUS-CKP, T-TPT)", type=["csv"])
+        uploaded = st.file_uploader("📂 CSV (timestamp, T-JUS-CKP, T-TPT)", type=["csv"],
+                                    key="demo_csv_uploader")
 
     if uploaded:
         try:
@@ -700,7 +717,7 @@ with tab6:
                 fp = px.pie(vc, values="Qtd", names="Evento",
                             color_discrete_sequence=[PECE_LIGHT_BLUE,USP_GOLD,DANGER,
                                                      SUCCESS,WARNING,"#AB47BC"])
-                fp.update_layout(**PLOTLY_DARK, height=260, margin=dict(t=10,b=10))
+                fp.update_layout(**{**PLOTLY_DARK, "margin": dict(t=10, b=10)}, height=260)
                 st.plotly_chart(fp, use_container_width=True)
 
             st.markdown("#### 📈 Série Temporal com Classes Preditas")
@@ -734,6 +751,19 @@ with tab6:
                 f'<div class="evt-card" style="border-color:{c}">'
                 f'<b style="color:{c}">Classe {cls}</b> — {label}</div>',
                 unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DESPACHO — renderiza apenas a seção selecionada na sidebar
+# ─────────────────────────────────────────────────────────────────────────────
+DISPATCH = {
+    "visao_geral":   render_visao_geral,
+    "pipeline_etl":  render_pipeline_etl,
+    "exploratoria":  render_exploratoria,
+    "resultados_ml": render_resultados_ml,
+    "shap":          render_shap,
+    "demo":          render_demo,
+}
+DISPATCH[nav_page]()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FOOTER

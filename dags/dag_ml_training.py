@@ -69,6 +69,7 @@ with DAG(
         'n_estimators_rf':   100,    # reduzido para t3.large (8GB RAM)
         'n_estimators_xgb':  200,    # early stopping para mais cedo (era 500)
         'n_estimators_lgb':  500,    # early stopping reduz na prática (era 1000)
+        'max_samples':    500000,    # mesmo volume para RF/XGB/LGB — comparação justa
         'threshold_steps':    50,
         'shap_n_background':  50,    # reduzido para economizar RAM (era 100)
         'shap_n_explain':    100,    # reduzido para economizar RAM (era 200)
@@ -89,9 +90,10 @@ A camada Gold deve estar populada. Rode `dag_gold_rebuild` antes se necessário.
 | Parâmetro | Descrição | Default |
 |---|---|---|
 | `modelos` | Modelos a treinar: `all`, `rf`, `xgb`, `lgb` | `all` |
-| `n_estimators_rf` | Número de árvores RF | 150 |
-| `n_estimators_xgb` | Rounds máximos XGBoost | 500 |
-| `n_estimators_lgb` | Rounds máximos LightGBM | 1000 |
+| `n_estimators_rf` | Número de árvores RF | 100 |
+| `n_estimators_xgb` | Rounds máximos XGBoost | 200 |
+| `n_estimators_lgb` | Rounds máximos LightGBM | 500 |
+| `max_samples` | Amostras de treino (mesmo valor para RF/XGB/LGB) | 500000 |
 | `threshold_steps` | Passos do grid search de threshold | 50 |
 | `shap_n_background` | Amostras background por classe (SHAP) | 100 |
 | `shap_n_explain` | Amostras a explicar por classe (SHAP) | 200 |
@@ -184,7 +186,7 @@ A camada Gold deve estar populada. Rode `dag_gold_rebuild` antes se necessário.
         python_callable   = _cmd_treinar,
         op_kwargs         = {
             'script_name': 'train_xgb_baseline.py',
-            'extra_args':  '--n-estimators {{ params.n_estimators_xgb }}',
+            'extra_args':  '--n-estimators {{ params.n_estimators_xgb }} --max-samples {{ params.max_samples }}',
         },
         execution_timeout = timedelta(hours=2),
     )
@@ -194,7 +196,7 @@ A camada Gold deve estar populada. Rode `dag_gold_rebuild` antes se necessário.
         python_callable   = _cmd_treinar,
         op_kwargs         = {
             'script_name': 'train_lgb_baseline.py',
-            'extra_args':  '--n-estimators {{ params.n_estimators_lgb }} --n-jobs 1',
+            'extra_args':  '--n-estimators {{ params.n_estimators_lgb }} --n-jobs 1 --max-samples {{ params.max_samples }}',
         },
         execution_timeout = timedelta(hours=1),
     )

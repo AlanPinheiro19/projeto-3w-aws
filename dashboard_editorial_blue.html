@@ -1,0 +1,1020 @@
+<title>3W — Um Relatório de Dados sobre Poços Offshore (Blue Edition)</title>
+<style>
+  /* ============================================================
+     TOKENS — recolorido em azul PECE/USP (mesma paleta do app.py /
+     .streamlit/config.toml), mantendo a linguagem editorial
+     ============================================================ */
+  :root{
+    --paper: #EDF1F6;
+    --paper-raised: #ffffff;
+    --paper-dim: #E1E8F0;
+    --ink: #0D1B2A;
+    --ink-soft: #33475C;
+    --ink-faint: #64748B;
+    --rule: #CBD8E6;
+    --rule-strong: #A9BED6;
+    --gold: #A9791A;
+    --gold-strong: #8A611A;
+    --c-normal: #1565C0;
+    --c-bsw: #B9770A;
+    --c-dhsv: #C23B32;
+    --c-flow: #8E3AA3;
+    --c-pck: #1E8577;
+    --c-scale: #6E5148;
+    --shadow: 0 1px 2px rgba(13,27,42,.07), 0 8px 24px rgba(13,27,42,.06);
+    --serif: Iowan Old Style, "Palatino Linotype", Palatino, Georgia, "Noto Serif", "PT Serif", serif;
+    --sans: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", "Cascadia Code", "Consolas", "Roboto Mono", ui-monospace, monospace;
+  }
+  :root[data-theme="dark"]{
+    --paper: #0A1220;
+    --paper-raised: #142136;
+    --paper-dim: #0D1B2A;
+    --ink: #E2E8F0;
+    --ink-soft: #B7C4D6;
+    --ink-faint: #7C8FA8;
+    --rule: #1E3A5F;
+    --rule-strong: #2E4E78;
+    --gold: #EDB931;
+    --gold-strong: #FFD874;
+    --c-normal: #2979FF;
+    --c-bsw: #FFB300;
+    --c-dhsv: #EF4444;
+    --c-flow: #AB47BC;
+    --c-pck: #26A69A;
+    --c-scale: #8D6E63;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper: #0A1220;
+      --paper-raised: #142136;
+      --paper-dim: #0D1B2A;
+      --ink: #E2E8F0;
+      --ink-soft: #B7C4D6;
+      --ink-faint: #7C8FA8;
+      --rule: #1E3A5F;
+      --rule-strong: #2E4E78;
+      --gold: #EDB931;
+      --gold-strong: #FFD874;
+      --c-normal: #2979FF;
+      --c-bsw: #FFB300;
+      --c-dhsv: #EF4444;
+      --c-flow: #AB47BC;
+      --c-pck: #26A69A;
+      --c-scale: #8D6E63;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 28px rgba(0,0,0,.35);
+    }
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden;}
+  body{
+    background:var(--paper);
+    color:var(--ink-soft);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--gold);color:var(--paper-raised);}
+  :focus-visible{ outline: 2px solid var(--c-normal); outline-offset: 2px; }
+
+  a{color:inherit;}
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;}
+
+  /* ============ THEME + LANGUAGE TOGGLES ============ */
+  .controls{
+    position:fixed; top:14px; right:14px; z-index:20;
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;
+    max-width:calc(100vw - 28px);
+  }
+  .theme-toggle, .lang-toggle{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--ink-soft); background:var(--paper-raised);
+    border:1px solid var(--rule-strong); box-shadow:var(--shadow);
+    padding:7px 11px; cursor:pointer;
+  }
+  .lang-toggle .lang-cur{color:var(--c-normal);font-weight:600;}
+
+  /* ============ MASTHEAD ============ */
+  .masthead{
+    border-bottom:2px solid var(--ink);
+    padding:22px clamp(16px,4vw,48px) 18px;
+  }
+  .masthead-top{
+    display:flex;justify-content:space-between;align-items:center;
+    padding-bottom:16px;margin-bottom:18px;
+    border-bottom:1px solid var(--rule);
+    flex-wrap:wrap;gap:10px;
+  }
+  .seal-row{display:flex;align-items:center;gap:10px;color:var(--c-normal);}
+  .seal-row .div{color:var(--rule-strong);}
+  .wordmark{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);}
+  .masthead-tags{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink-faint);text-align:right;}
+  .masthead-tags b{color:var(--gold-strong);font-weight:600;}
+
+  .masthead-main{max-width:960px;margin:0 auto;text-align:center;}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold-strong);margin-bottom:14px;}
+  h1.title{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:clamp(34px,5.4vw,58px);
+    line-height:1.08;
+    color:var(--ink);
+    margin:0 0 18px;
+    letter-spacing:-0.01em;
+  }
+  h1.title em{font-style:italic;color:var(--c-normal);}
+  .dek{
+    font-family:var(--serif);
+    font-style:italic;
+    font-size:clamp(17px,2vw,21px);
+    color:var(--ink-soft);
+    max-width:680px;margin:0 auto 20px;
+    line-height:1.5;
+  }
+  .byline{font-family:var(--mono);font-size:12px;color:var(--ink-faint);letter-spacing:.03em;}
+  .byline b{color:var(--ink-soft);font-weight:600;}
+
+  /* ============ LAYOUT ============ */
+  .layout{
+    max-width:1360px;margin:0 auto;
+    display:grid;grid-template-columns:220px minmax(0,1fr);
+    gap:0;
+  }
+  .toc{
+    padding:40px 20px 40px clamp(16px,3vw,40px);
+    position:sticky;top:0;align-self:start;
+    max-height:100vh;overflow:auto;
+  }
+  .toc .eyebrow{margin-bottom:16px;display:block;}
+  .toc ol{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule);}
+  .toc li{border-bottom:1px solid var(--rule);}
+  .toc a{
+    display:flex;gap:12px;align-items:baseline;
+    padding:13px 2px;text-decoration:none;cursor:pointer;
+    font-family:var(--sans);font-size:13.5px;color:var(--ink-faint);
+    transition:color .15s ease, padding-left .15s ease;
+  }
+  .toc a:hover{color:var(--ink);padding-left:6px;}
+  .toc a.active{color:var(--ink);font-weight:600;}
+  .toc a.active .toc-n{color:var(--c-normal);}
+  .toc-n{font-family:var(--serif);font-style:italic;font-size:15px;color:var(--rule-strong);min-width:20px;}
+  .toc-foot{margin-top:28px;padding-top:16px;border-top:1px dashed var(--rule);font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);line-height:1.7;}
+
+  main{
+    padding:40px clamp(16px,4vw,56px) 80px;
+    max-width:900px;
+  }
+
+  section.chapter{padding-top:8px;margin-bottom:64px;scroll-margin-top:24px;}
+  section.chapter:not(:first-child){padding-top:44px;border-top:1px solid var(--rule);}
+  .chapter-head{margin-bottom:22px;}
+  .chapter-eyebrow{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+  .chapter-eyebrow .line{flex:1;height:1px;background:var(--rule);}
+  h2.chapter-title{
+    font-family:var(--serif);font-weight:400;font-size:clamp(26px,3.4vw,36px);
+    color:var(--ink);margin:0 0 10px;letter-spacing:-0.01em;
+  }
+  .lede{font-size:16.5px;color:var(--ink-soft);max-width:680px;}
+  .lede b{color:var(--ink);font-weight:600;}
+  .dropcap::first-letter{
+    font-family:var(--serif);font-size:3.4em;float:left;line-height:.82;
+    padding:.03em .09em 0 0;color:var(--ink);font-style:italic;
+  }
+
+  /* ============ KPI STRIP ============ */
+  .kpi-strip{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    border-top:1px solid var(--rule-strong);border-bottom:1px solid var(--rule-strong);
+    margin:28px 0;
+  }
+  .kpi{
+    padding:20px 18px;border-right:1px solid var(--rule);
+    text-align:left;
+  }
+  .kpi:nth-child(3n){border-right:none;}
+  .kpi-value{font-family:var(--serif);font-size:clamp(26px,3vw,34px);color:var(--ink);line-height:1;}
+  .kpi-value .gold{color:var(--gold-strong);}
+  .kpi-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);margin-top:8px;}
+
+  /* ============ COLOPHON / STACK ============ */
+  .colophon{margin-top:26px;padding-top:18px;border-top:1px dashed var(--rule);}
+  .colophon-row{display:flex;gap:8px 0;margin-bottom:9px;flex-wrap:wrap;align-items:baseline;}
+  .colophon-row .k{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-faint);width:130px;flex-shrink:0;}
+  .colophon-row .v{font-family:var(--mono);font-size:12px;color:var(--ink-soft);}
+  .colophon-row .v span:not(:last-child)::after{content:" · ";color:var(--rule-strong);}
+
+  /* ============ PIPELINE DIAGRAM ============ */
+  .pipeline-scroll{overflow-x:auto;padding-bottom:6px;margin:26px 0 8px;}
+  .pipeline{display:flex;align-items:stretch;gap:0;min-width:700px;}
+  .pnode{
+    flex:1;background:var(--paper-raised);border:1px solid var(--rule-strong);
+    padding:16px 14px;box-shadow:var(--shadow);
+  }
+  .pnode .t{font-family:var(--serif);font-style:italic;font-size:16px;color:var(--ink);}
+  .pnode .s{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:6px;letter-spacing:.03em;}
+  .parrow{display:flex;align-items:center;justify-content:center;width:34px;color:var(--c-normal);font-family:var(--serif);font-style:italic;font-size:20px;}
+
+  /* ============ EVENT CLASS CARDS (field guide) ============ */
+  .field-guide{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin:26px 0;}
+  .card{
+    background:var(--paper-raised);border:1px solid var(--rule);
+    box-shadow:var(--shadow);
+    display:flex;overflow:hidden;
+  }
+  .card .spine{width:7px;flex-shrink:0;}
+  .card .body{padding:14px 16px;}
+  .card .idx{font-family:var(--mono);font-size:10px;color:var(--ink-faint);letter-spacing:.08em;}
+  .card .name{font-family:var(--serif);font-size:18px;color:var(--ink);margin:3px 0 5px;}
+  .card .desc{font-size:13px;color:var(--ink-soft);line-height:1.5;}
+  .card .freq{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:8px;}
+  .card .freq b{color:var(--ink);}
+
+  /* ============ RANKED BAR LIST (class distribution) ============ */
+  .rank-scroll{overflow-x:auto;margin:24px 0;}
+  .rank{min-width:520px;}
+  .rank-row{display:grid;grid-template-columns:170px 1fr 70px;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--rule);}
+  .rank-row .rlabel{font-family:var(--sans);font-size:13px;color:var(--ink-soft);}
+  .rank-row .rlabel b{color:var(--ink);}
+  .rank-track{height:9px;background:var(--paper-dim);position:relative;}
+  .rank-fill{height:100%;}
+  .rank-row .rval{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint);text-align:right;}
+  .scale-note{font-family:var(--mono);font-size:10px;color:var(--ink-faint);margin-top:4px;font-style:italic;}
+
+  /* ============ MODEL HIGHLIGHTS ============ */
+  .models{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:26px 0;}
+  .model{border:1px solid var(--rule-strong);background:var(--paper-raised);padding:18px 16px;box-shadow:var(--shadow);position:relative;}
+  .model .ord{font-family:var(--serif);font-style:italic;font-size:30px;color:var(--rule-strong);position:absolute;top:10px;right:14px;}
+  .model.win .ord{color:var(--gold-strong);}
+  .model .mname{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);}
+  .model .mscore{font-family:var(--serif);font-size:32px;color:var(--ink);margin:8px 0 4px;}
+  .model .mnote{font-size:12.5px;color:var(--ink-soft);}
+
+  /* ============ CONFUSION MATRIX ============ */
+  .cm-scroll{overflow-x:auto;margin:24px 0;}
+  .cm{border-collapse:collapse;min-width:480px;}
+  .cm th{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);text-transform:uppercase;padding:5px 4px;font-weight:400;}
+  .cm td{width:46px;height:38px;text-align:center;font-family:var(--mono);font-size:11px;border:1px solid var(--paper);}
+  .cm .rowlabel{font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);text-align:right;padding-right:8px;white-space:nowrap;}
+
+  /* ============ WELL LOG (signature chart) ============ */
+  .welllog-wrap{
+    display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:26px;margin:28px 0;align-items:start;
+  }
+  .welllog{background:var(--paper-raised);border:1px solid var(--rule-strong);box-shadow:var(--shadow);padding:18px 18px 10px;}
+  .welllog svg{width:100%;height:auto;display:block;overflow:visible;}
+  .annotation{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--gold-strong);}
+  .shap-side{}
+  .shap-title{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint);margin-bottom:10px;}
+  .shap-row{display:grid;grid-template-columns:86px 1fr;gap:8px;align-items:center;margin-bottom:9px;}
+  .shap-row .slabel{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);}
+  .shap-track{height:7px;background:var(--paper-dim);}
+  .shap-fill{height:100%;background:var(--c-normal);}
+
+  /* ============ DEMO CALLOUT ============ */
+  .demo-box{
+    border:1px dashed var(--rule-strong);background:var(--paper-raised);
+    padding:26px clamp(18px,3vw,34px);margin:26px 0;box-shadow:var(--shadow);
+  }
+  .demo-fig{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);letter-spacing:.06em;text-transform:uppercase;margin-bottom:14px;}
+  .demo-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px;}
+  .dropzone{
+    border:1.5px dashed var(--rule-strong);padding:26px 16px;text-align:center;
+    background:var(--paper-dim);
+  }
+  .dropzone .icon{font-family:var(--serif);font-style:italic;font-size:28px;color:var(--ink-faint);}
+  .dropzone .t{font-size:13.5px;color:var(--ink-soft);margin:8px 0 4px;}
+  .dropzone .s{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);}
+  .btn-row{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;}
+  .btn{
+    font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+    padding:9px 14px;border:1px solid var(--ink);background:transparent;color:var(--ink);
+    cursor:pointer;
+  }
+  .btn.solid{background:var(--c-normal);color:#fff;border-color:var(--c-normal);}
+  .btn.gold{border-color:var(--gold-strong);color:var(--gold-strong);}
+
+  .donut-row{display:flex;align-items:center;gap:20px;}
+  .legend-mini{font-family:var(--mono);font-size:10.5px;}
+  .legend-mini div{display:flex;align-items:center;gap:6px;margin-bottom:5px;color:var(--ink-soft);}
+  .legend-mini i{width:9px;height:9px;display:inline-block;flex-shrink:0;}
+  .mini-timeline{display:flex;height:14px;width:100%;margin-top:16px;}
+  .mini-timeline div{height:100%;}
+
+  /* ============ DEMO — FUNCTIONAL (client-side simulated) ============ */
+  .donut-wrap{position:relative;width:96px;height:96px;flex-shrink:0;}
+  .donut-ring{width:96px;height:96px;border-radius:50%;background:conic-gradient(var(--paper-dim) 0 100%);transition:background .2s ease;}
+  .donut-wrap::after{content:"";position:absolute;inset:17px;border-radius:50%;background:var(--paper-raised);}
+  .gen-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;}
+  .gen-row select{
+    font-family:var(--mono);font-size:11px;letter-spacing:.02em;
+    padding:9px 10px;border:1px solid var(--ink);background:var(--paper-raised);color:var(--ink);
+  }
+  .dropzone{transition:border-color .15s ease, background .15s ease;cursor:pointer;}
+  .dropzone.dragover{border-color:var(--c-normal);background:var(--paper-raised);}
+  .dropzone .s.has-file{color:var(--c-normal);font-weight:600;}
+  .demo-status{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);margin-top:10px;min-height:1.4em;}
+  .demo-status.warn{color:var(--c-bsw);}
+  .demo-status.ok{color:var(--c-normal);}
+  .demo-disclaimer{
+    font-family:var(--mono);font-size:9.5px;color:var(--ink-faint);
+    border-top:1px dashed var(--rule);margin-top:16px;padding-top:10px;line-height:1.6;
+  }
+
+  footer{
+    max-width:900px;margin:0 auto;padding:0 clamp(16px,4vw,56px) 60px;
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);
+    border-top:1px solid var(--rule);padding-top:18px;line-height:1.8;
+  }
+
+  @media (max-width:880px){
+    .layout{grid-template-columns:1fr;}
+    .toc{position:relative;padding:20px clamp(16px,4vw,24px);max-height:none;}
+    .toc ol{display:flex;flex-wrap:wrap;border-top:none;}
+    .toc li{border-bottom:none;border-right:1px solid var(--rule);}
+    .toc li:last-child{border-right:none;}
+    .toc a{padding:6px 12px;}
+    .toc-foot{display:none;}
+    main{padding:28px 18px 60px;}
+    .kpi-strip{grid-template-columns:repeat(2,1fr);}
+    .kpi:nth-child(3n){border-right:1px solid var(--rule);}
+    .kpi:nth-child(2n){border-right:none;}
+    .field-guide{grid-template-columns:1fr;}
+    .models{grid-template-columns:1fr;}
+    .welllog-wrap{grid-template-columns:1fr;}
+    .demo-grid{grid-template-columns:1fr;}
+    .masthead-top{justify-content:center;text-align:center;}
+    .masthead-tags{text-align:center;}
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+  }
+</style>
+
+<div class="controls">
+  <button class="theme-toggle" onclick="document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme')==='light' ? 'dark' : 'light')" data-pt="☀ / ☾ Tema" data-en="☀ / ☾ Theme">☀ / ☾ Tema</button>
+  <button class="lang-toggle" type="button" onclick="window.__setLang(document.documentElement.getAttribute('data-lang')==='en' ? 'pt' : 'en')"><span class="lang-cur">PT-BR</span> / EN</button>
+</div>
+
+<!-- ============ MASTHEAD ============ -->
+<div class="masthead">
+  <div class="masthead-top">
+    <div class="seal-row">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <circle cx="17" cy="17" r="15.5" fill="none" stroke="currentColor" stroke-width="1"/>
+        <circle cx="17" cy="17" r="12.5" fill="none" stroke="currentColor" stroke-width="0.5"/>
+        <path d="M11 22 L17 9 L23 22 Z" fill="none" stroke="currentColor" stroke-width="1"/>
+        <line x1="8" y1="22" x2="26" y2="22" stroke="currentColor" stroke-width="1"/>
+      </svg>
+      <div class="wordmark">Escola Politécnica USP <span class="div">·</span> PECE</div>
+    </div>
+    <div class="masthead-tags">Dataset 3W / Petrobras <b>·</b> LightGBM <b>·</b> XGBoost <b>·</b> Random Forest<br>AWS Glue · Airflow · S3 · PostgreSQL</div>
+  </div>
+
+  <div class="masthead-main">
+    <div class="kicker" data-pt="Trabalho de Conclusão de Curso — Engenharia de Dados &amp; Big Data" data-en="Final Undergraduate Thesis — Data Engineering &amp; Big Data">Trabalho de Conclusão de Curso — Engenharia de Dados &amp; Big Data</div>
+    <h1 class="title" data-pt-html='O sinal escondido<br>na <em>pressão do poço</em>' data-en-html='The hidden signal<br>in <em>well pressure</em>'>O sinal escondido<br>na <em>pressão do poço</em></h1>
+    <p class="dek" data-pt="Uma investigação sobre como seis anos de telemetria de sensores offshore — e um punhado de segundos de anomalia — podem ser aprendidos por máquinas para prever falhas antes que se tornem acidentes." data-en="An investigation into how six years of offshore sensor telemetry — and a handful of seconds of anomaly — can be learned by machines to predict failures before they become accidents.">Uma investigação sobre como seis anos de telemetria de sensores offshore — e um punhado de segundos de anomalia — podem ser aprendidos por máquinas para prever falhas antes que se tornem acidentes.</p>
+    <p class="byline" data-pt-html='Por <b>Alan Pinheiro da Silva</b> · 2026 · Escola Politécnica da Universidade de São Paulo' data-en-html='By <b>Alan Pinheiro da Silva</b> · 2026 · Escola Politécnica da Universidade de São Paulo'>Por <b>Alan Pinheiro da Silva</b> · 2026 · Escola Politécnica da Universidade de São Paulo</p>
+  </div>
+</div>
+
+<!-- ============ LAYOUT ============ -->
+<div class="layout">
+  <nav class="toc">
+    <span class="eyebrow" data-pt="Índice do relatório" data-en="Report index">Índice do relatório</span>
+    <ol>
+      <li><a href="#s1" class="active"><span class="toc-n">I</span> <span data-pt="Visão Geral" data-en="Overview">Visão Geral</span></a></li>
+      <li><a href="#s2"><span class="toc-n">II</span> <span data-pt="Pipeline ETL" data-en="ETL Pipeline">Pipeline ETL</span></a></li>
+      <li><a href="#s3"><span class="toc-n">III</span> <span data-pt="Exploratória" data-en="Exploratory">Exploratória</span></a></li>
+      <li><a href="#s4"><span class="toc-n">IV</span> <span data-pt="Resultados ML" data-en="ML Results">Resultados ML</span></a></li>
+      <li><a href="#s5"><span class="toc-n">V</span> <span data-pt="SHAP" data-en="SHAP">SHAP</span></a></li>
+      <li><a href="#s6"><span class="toc-n">VI</span> <span data-pt="Demo — Predição" data-en="Demo — Prediction">Demo — Predição</span></a></li>
+    </ol>
+    <div class="toc-foot" data-pt-html='ARQUIVO 3W-EEP-2026<br>REVISÃO CONCEITUAL · MOCKUP<br>DEMO (VI) SIMULADA NO NAVEGADOR' data-en-html='ISSUE 3W-EEP-2026<br>CONCEPTUAL REVIEW · MOCKUP<br>DEMO (VI) SIMULATED IN-BROWSER'>
+      ARQUIVO 3W-EEP-2026<br>
+      REVISÃO CONCEITUAL · MOCKUP<br>
+      DEMO (VI) SIMULADA NO NAVEGADOR
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ===== I. VISÃO GERAL ===== -->
+    <section class="chapter" id="s1">
+      <div class="chapter-head">
+        <div class="chapter-eyebrow"><span class="eyebrow" data-pt="I — Visão Geral" data-en="I — Overview">I — Visão Geral</span><span class="line"></span></div>
+        <h2 class="chapter-title" data-pt="Um poço offshore fala em números" data-en="An offshore well speaks in numbers">Um poço offshore fala em números</h2>
+      </div>
+      <p class="lede dropcap" data-pt-html='Cada poço de petróleo transmite, a cada segundo, um retrato de sua própria saúde: pressão, temperatura, vazão. A maior parte desse retrato é rotina — o que este trabalho persegue são os <b>instantes em que o poço se desvia de si mesmo</b>, e o que essa fração rara dos dados ensina a um classificador.' data-en-html='Every oil well transmits, every second, a portrait of its own health: pressure, temperature, flow rate. Most of that portrait is routine — what this work chases are the <b>instants when the well deviates from itself</b>, and what that rare fraction of the data teaches a classifier.'>Cada poço de petróleo transmite, a cada segundo, um retrato de sua própria saúde: pressão, temperatura, vazão. A maior parte desse retrato é rotina — o que este trabalho persegue são os <b>instantes em que o poço se desvia de si mesmo</b>, e o que essa fração rara dos dados ensina a um classificador.</p>
+
+      <div class="kpi-strip">
+        <div class="kpi"><div class="kpi-value num" data-pt-html='9,2<span class="gold">M</span>' data-en-html='9.2<span class="gold">M</span>'>9,2<span class="gold">M</span></div><div class="kpi-label" data-pt="Registros processados" data-en="Records processed">Registros processados</div></div>
+        <div class="kpi"><div class="kpi-value num">3</div><div class="kpi-label" data-pt="Poços instrumentados" data-en="Instrumented wells">Poços instrumentados</div></div>
+        <div class="kpi"><div class="kpi-value num">7</div><div class="kpi-label" data-pt="Classes de evento" data-en="Event classes">Classes de evento</div></div>
+        <div class="kpi"><div class="kpi-value num">136</div><div class="kpi-label" data-pt="Features derivadas" data-en="Derived features">Features derivadas</div></div>
+        <div class="kpi"><div class="kpi-value num" data-pt-html='<span class="gold">96,7</span>%' data-en-html='<span class="gold">96.7</span>%'><span class="gold">96,7</span>%</div><div class="kpi-label" data-pt="F1-macro (melhor modelo)" data-en="F1-macro (best model)">F1-macro (melhor modelo)</div></div>
+        <div class="kpi"><div class="kpi-value num" data-pt="99,9%" data-en="99.9%">99,9%</div><div class="kpi-label" data-pt="Acurácia geral" data-en="Overall accuracy">Acurácia geral</div></div>
+      </div>
+
+      <div class="colophon">
+        <div class="colophon-row"><span class="k" data-pt="Linguagem" data-en="Language">Linguagem</span><span class="v"><span>Python 3.11</span><span>SQL</span></span></div>
+        <div class="colophon-row"><span class="k">ETL</span><span class="v"><span>AWS Glue</span><span>Apache Airflow</span><span>Pandas</span></span></div>
+        <div class="colophon-row"><span class="k" data-pt="Armazenamento" data-en="Storage">Armazenamento</span><span class="v"><span>Amazon S3</span><span>PostgreSQL</span><span>Parquet</span></span></div>
+        <div class="colophon-row"><span class="k">Machine learning</span><span class="v"><span>LightGBM</span><span>XGBoost</span><span>Random Forest</span><span>SHAP</span></span></div>
+        <div class="colophon-row"><span class="k" data-pt="Infraestrutura" data-en="Infrastructure">Infraestrutura</span><span class="v"><span>Terraform</span><span>EC2</span><span>IAM</span><span>Streamlit</span></span></div>
+      </div>
+    </section>
+
+    <!-- ===== II. PIPELINE ===== -->
+    <section class="chapter" id="s2">
+      <div class="chapter-head">
+        <div class="chapter-eyebrow"><span class="eyebrow" data-pt="II — Pipeline ETL" data-en="II — ETL Pipeline">II — Pipeline ETL</span><span class="line"></span></div>
+        <h2 class="chapter-title" data-pt="Do arquivo bruto ao dado que ensina" data-en="From raw file to data that teaches">Do arquivo bruto ao dado que ensina</h2>
+      </div>
+      <p class="lede" data-pt="Os dados do 3W chegam como séries brutas por poço. Antes de qualquer modelo, eles atravessam um pipeline orquestrado que limpa, particiona, enriquece e disponibiliza cada evento para consumo analítico." data-en="3W data arrives as raw per-well time series. Before any model, it passes through an orchestrated pipeline that cleans, partitions, enriches, and makes each event available for analytical consumption.">Os dados do 3W chegam como séries brutas por poço. Antes de qualquer modelo, eles atravessam um pipeline orquestrado que limpa, particiona, enriquece e disponibiliza cada evento para consumo analítico.</p>
+
+      <div class="pipeline-scroll">
+        <div class="pipeline">
+          <div class="pnode"><div class="t">S3 · Raw</div><div class="s" data-pt="CSV brutos por poço / evento" data-en="Raw CSVs per well / event">CSV brutos por poço / evento</div></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="t">AWS Glue</div><div class="s" data-pt="Limpeza, schema, particionamento" data-en="Cleaning, schema, partitioning">Limpeza, schema, particionamento</div></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="t">S3 · Processed</div><div class="s" data-pt="Parquet colunar, 136 features" data-en="Columnar Parquet, 136 features">Parquet colunar, 136 features</div></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="t">Airflow</div><div class="s" data-pt="Orquestração diária dos DAGs" data-en="Daily DAG orchestration">Orquestração diária dos DAGs</div></div>
+          <div class="parrow">→</div>
+          <div class="pnode"><div class="t">PostgreSQL</div><div class="s" data-pt="Camada gold para consumo / ML" data-en="Gold layer for consumption / ML">Camada gold para consumo / ML</div></div>
+        </div>
+      </div>
+      <p class="scale-note" data-pt="Rolagem horizontal disponível em telas estreitas." data-en="Horizontal scroll available on narrow screens.">Rolagem horizontal disponível em telas estreitas.</p>
+    </section>
+
+    <!-- ===== III. EXPLORATÓRIA ===== -->
+    <section class="chapter" id="s3">
+      <div class="chapter-head">
+        <div class="chapter-eyebrow"><span class="eyebrow" data-pt="III — Exploratória" data-en="III — Exploratory">III — Exploratória</span><span class="line"></span></div>
+        <h2 class="chapter-title" data-pt="Um campo de seis comportamentos" data-en="A field of six behaviors">Um campo de seis comportamentos</h2>
+      </div>
+      <p class="lede" data-pt="O 3W rotula sete estados possíveis de um poço. Seis deles são desvios — cada um com sua própria assinatura de sensores, sua própria raridade, seu próprio risco." data-en="3W labels seven possible states of a well. Six of them are deviations — each with its own sensor signature, its own rarity, its own risk.">O 3W rotula sete estados possíveis de um poço. Seis deles são desvios — cada um com sua própria assinatura de sensores, sua própria raridade, seu próprio risco.</p>
+
+      <div class="field-guide">
+        <div class="card"><div class="spine" style="background:var(--c-normal)"></div><div class="body">
+          <div class="idx" data-pt="CLASSE 0" data-en="CLASS 0">CLASSE 0</div><div class="name">Normal</div>
+          <div class="desc" data-pt="Operação nominal — a linha de base contra a qual todo desvio é medido." data-en="Nominal operation — the baseline against which every deviation is measured.">Operação nominal — a linha de base contra a qual todo desvio é medido.</div>
+          <div class="freq" data-pt-html='Frequência: <b>maioria</b> dos registros' data-en-html='Frequency: <b>majority</b> of records'>Frequência: <b>maioria</b> dos registros</div>
+        </div></div>
+        <div class="card"><div class="spine" style="background:var(--c-bsw)"></div><div class="body">
+          <div class="idx" data-pt="CLASSE 1" data-en="CLASS 1">CLASSE 1</div><div class="name">BSW Abrupt Increase</div>
+          <div class="desc" data-pt="Aumento súbito de água e sedimentos no fluxo — sinal precoce de invasão de água." data-en="Sudden increase in water and sediment in the flow — an early sign of water breakthrough.">Aumento súbito de água e sedimentos no fluxo — sinal precoce de invasão de água.</div>
+          <div class="freq" data-pt-html='Frequência: <b>rara</b>' data-en-html='Frequency: <b>rare</b>'>Frequência: <b>rara</b></div>
+        </div></div>
+        <div class="card"><div class="spine" style="background:var(--c-dhsv)"></div><div class="body">
+          <div class="idx" data-pt="CLASSE 2" data-en="CLASS 2">CLASSE 2</div><div class="name">DHSV Spurious Closure</div>
+          <div class="desc" data-pt="Fechamento espúrio da válvula de segurança de subsuperfície." data-en="Spurious closure of the downhole safety valve.">Fechamento espúrio da válvula de segurança de subsuperfície.</div>
+          <div class="freq" data-pt-html='Frequência: <b>rara</b>' data-en-html='Frequency: <b>rare</b>'>Frequência: <b>rara</b></div>
+        </div></div>
+        <div class="card"><div class="spine" style="background:var(--c-flow)"></div><div class="body">
+          <div class="idx" data-pt="CLASSE 4" data-en="CLASS 4">CLASSE 4</div><div class="name">Flow Instability</div>
+          <div class="desc" data-pt="Oscilação instável de vazão — precursora de golfadas (slugging)." data-en="Unstable flow-rate oscillation — a precursor to slugging.">Oscilação instável de vazão — precursora de golfadas (slugging).</div>
+          <div class="freq" data-pt-html='Frequência: <b>moderada</b>' data-en-html='Frequency: <b>moderate</b>'>Frequência: <b>moderada</b></div>
+        </div></div>
+        <div class="card"><div class="spine" style="background:var(--c-pck)"></div><div class="body">
+          <div class="idx" data-pt="CLASSE 6" data-en="CLASS 6">CLASSE 6</div><div class="name">PCK Quick Restriction</div>
+          <div class="desc" data-pt="Restrição rápida no choke de produção — queda brusca de pressão a montante." data-en="Rapid restriction in the production choke — abrupt upstream pressure drop.">Restrição rápida no choke de produção — queda brusca de pressão a montante.</div>
+          <div class="freq" data-pt-html='Frequência: <b>rara</b>' data-en-html='Frequency: <b>rare</b>'>Frequência: <b>rara</b></div>
+        </div></div>
+        <div class="card"><div class="spine" style="background:var(--c-scale)"></div><div class="body">
+          <div class="idx" data-pt="CLASSE 7" data-en="CLASS 7">CLASSE 7</div><div class="name">Scaling in PCK</div>
+          <div class="desc" data-pt="Incrustação progressiva no choke — degradação lenta, não abrupta." data-en="Progressive scale buildup in the choke — slow, not abrupt, degradation.">Incrustação progressiva no choke — degradação lenta, não abrupta.</div>
+          <div class="freq" data-pt-html='Frequência: <b>rara</b>' data-en-html='Frequency: <b>rare</b>'>Frequência: <b>rara</b></div>
+        </div></div>
+        <div class="card" style="grid-column:span 2;"><div class="spine" style="background:#7B8FA8"></div><div class="body">
+          <div class="idx" data-pt="CLASSE 3 (excluída do escopo final)" data-en="CLASS 3 (excluded from final scope)">CLASSE 3 (excluída do escopo final)</div><div class="name" style="color:var(--ink-faint)">Stationary Flow Instability</div>
+          <div class="desc" data-pt="Presente no dataset 3W mas ausente nos poços WELL-00001/002/006 — excluída da análise comparativa." data-en="Present in the 3W dataset but absent in wells WELL-00001/002/006 — excluded from the comparative analysis.">Presente no dataset 3W mas ausente nos poços WELL-00001/002/006 — excluída da análise comparativa.</div>
+        </div></div>
+      </div>
+
+      <div class="rank-scroll">
+        <div class="rank">
+          <div class="rank-row"><div class="rlabel"><b>Normal (Cl. 0)</b></div><div class="rank-track"><div class="rank-fill" style="width:100%;background:var(--c-normal)"></div></div><div class="rval num" data-pt="~8,8M" data-en="~8.8M">~8,8M</div></div>
+          <div class="rank-row"><div class="rlabel">Flow Instability (Cl. 4)</div><div class="rank-track"><div class="rank-fill" style="width:46%;background:var(--c-flow)"></div></div><div class="rval num">184k</div></div>
+          <div class="rank-row"><div class="rlabel">Scaling in PCK (Cl. 7)</div><div class="rank-track"><div class="rank-fill" style="width:29%;background:var(--c-scale)"></div></div><div class="rval num">21k</div></div>
+          <div class="rank-row"><div class="rlabel">BSW Abrupt Increase (Cl. 1)</div><div class="rank-track"><div class="rank-fill" style="width:23%;background:var(--c-bsw)"></div></div><div class="rval num" data-pt="8,4k" data-en="8.4k">8,4k</div></div>
+          <div class="rank-row"><div class="rlabel">DHSV Spurious Closure (Cl. 2)</div><div class="rank-track"><div class="rank-fill" style="width:19%;background:var(--c-dhsv)"></div></div><div class="rval num" data-pt="3,1k" data-en="3.1k">3,1k</div></div>
+          <div class="rank-row"><div class="rlabel">PCK Quick Restriction (Cl. 6)</div><div class="rank-track"><div class="rank-fill" style="width:15%;background:var(--c-pck)"></div></div><div class="rval num" data-pt="1,2k" data-en="1.2k">1,2k</div></div>
+        </div>
+      </div>
+      <p class="scale-note" data-pt="Distribuição de classes — escala logarítmica de largura de barra, contagens ilustrativas." data-en="Class distribution — logarithmic bar-width scale, illustrative counts.">Distribuição de classes — escala logarítmica de largura de barra, contagens ilustrativas.</p>
+    </section>
+
+    <!-- ===== IV. RESULTADOS ML ===== -->
+    <section class="chapter" id="s4">
+      <div class="chapter-head">
+        <div class="chapter-eyebrow"><span class="eyebrow" data-pt="IV — Resultados ML" data-en="IV — ML Results">IV — Resultados ML</span><span class="line"></span></div>
+        <h2 class="chapter-title" data-pt="Três modelos, um veredito" data-en="Three models, one verdict">Três modelos, um veredito</h2>
+      </div>
+      <p class="lede" data-pt="Gradient boosting venceu — mas por uma margem que conta sua própria história sobre o quão bem definidos são os limites entre classes neste problema." data-en="Gradient boosting won — but by a margin that tells its own story about how well-defined the class boundaries are in this problem.">Gradient boosting venceu — mas por uma margem que conta sua própria história sobre o quão bem definidos são os limites entre classes neste problema.</p>
+
+      <div class="models">
+        <div class="model win"><div class="ord">I</div>
+          <div class="mname">LightGBM</div>
+          <div class="mscore num" data-pt="96,7%" data-en="96.7%">96,7%</div>
+          <div class="mnote" data-pt="F1-macro · is_unbalance=True · acurácia 99,9%" data-en="F1-macro · is_unbalance=True · accuracy 99.9%">F1-macro · is_unbalance=True · acurácia 99,9%</div>
+        </div>
+        <div class="model"><div class="ord">II</div>
+          <div class="mname">XGBoost</div>
+          <div class="mscore num" data-pt="93,2%" data-en="93.2%">93,2%</div>
+          <div class="mnote" data-pt="F1-macro · +9,7pp após threshold tuning (base: 83,4%)" data-en="F1-macro · +9.7pp after threshold tuning (base: 83.4%)">F1-macro · +9,7pp após threshold tuning (base: 83,4%)</div>
+        </div>
+        <div class="model"><div class="ord">III</div>
+          <div class="mname">Random Forest</div>
+          <div class="mscore num" data-pt="89,4%" data-en="89.4%">89,4%</div>
+          <div class="mnote" data-pt="F1-macro · +8,4pp após threshold tuning (base: 81,0%)" data-en="F1-macro · +8.4pp after threshold tuning (base: 81.0%)">F1-macro · +8,4pp após threshold tuning (base: 81,0%)</div>
+        </div>
+      </div>
+
+      <div class="cm-scroll">
+        <table class="cm">
+          <tr><th></th><th>Normal</th><th>BSW</th><th>DHSV</th><th>Flow</th><th>PCK</th><th>Scale</th></tr>
+          <tr><td class="rowlabel">Normal</td>
+            <td style="background:rgba(21,101,192,.85);color:#fff">.99</td>
+            <td style="background:rgba(21,101,192,.05)">.00</td>
+            <td style="background:rgba(21,101,192,.05)">.00</td>
+            <td style="background:rgba(21,101,192,.08)">.01</td>
+            <td style="background:rgba(21,101,192,.04)">.00</td>
+            <td style="background:rgba(21,101,192,.04)">.00</td></tr>
+          <tr><td class="rowlabel">BSW</td>
+            <td style="background:rgba(185,119,10,.06)">.02</td>
+            <td style="background:rgba(185,119,10,.9);color:#fff">.95</td>
+            <td style="background:rgba(185,119,10,.05)">.01</td>
+            <td style="background:rgba(185,119,10,.08)">.02</td>
+            <td style="background:rgba(185,119,10,.03)">.00</td>
+            <td style="background:rgba(185,119,10,.03)">.00</td></tr>
+          <tr><td class="rowlabel">DHSV</td>
+            <td style="background:rgba(194,59,50,.05)">.01</td>
+            <td style="background:rgba(194,59,50,.05)">.01</td>
+            <td style="background:rgba(194,59,50,.88);color:#fff">.96</td>
+            <td style="background:rgba(194,59,50,.05)">.01</td>
+            <td style="background:rgba(194,59,50,.05)">.01</td>
+            <td style="background:rgba(194,59,50,.03)">.00</td></tr>
+          <tr><td class="rowlabel">Flow</td>
+            <td style="background:rgba(142,58,163,.09)">.03</td>
+            <td style="background:rgba(142,58,163,.05)">.01</td>
+            <td style="background:rgba(142,58,163,.05)">.01</td>
+            <td style="background:rgba(142,58,163,.85);color:#fff">.93</td>
+            <td style="background:rgba(142,58,163,.05)">.01</td>
+            <td style="background:rgba(142,58,163,.05)">.01</td></tr>
+          <tr><td class="rowlabel">PCK</td>
+            <td style="background:rgba(30,133,119,.04)">.01</td>
+            <td style="background:rgba(30,133,119,.04)">.01</td>
+            <td style="background:rgba(30,133,119,.04)">.01</td>
+            <td style="background:rgba(30,133,119,.06)">.02</td>
+            <td style="background:rgba(30,133,119,.88);color:#fff">.95</td>
+            <td style="background:rgba(30,133,119,.04)">.00</td></tr>
+          <tr><td class="rowlabel">Scale</td>
+            <td style="background:rgba(110,81,72,.04)">.01</td>
+            <td style="background:rgba(110,81,72,.03)">.00</td>
+            <td style="background:rgba(110,81,72,.03)">.00</td>
+            <td style="background:rgba(110,81,72,.04)">.01</td>
+            <td style="background:rgba(110,81,72,.05)">.01</td>
+            <td style="background:rgba(110,81,72,.87);color:#fff">.97</td></tr>
+        </table>
+      </div>
+      <p class="scale-note" data-pt="Matriz de confusão normalizada por linha (recall), LightGBM — valores ilustrativos." data-en="Confusion matrix normalized by row (recall), LightGBM — illustrative values.">Matriz de confusão normalizada por linha (recall), LightGBM — valores ilustrativos.</p>
+    </section>
+
+    <!-- ===== V. SHAP ===== -->
+    <section class="chapter" id="s5">
+      <div class="chapter-head">
+        <div class="chapter-eyebrow"><span class="eyebrow" data-pt="V — SHAP" data-en="V — SHAP">V — SHAP</span><span class="line"></span></div>
+        <h2 class="chapter-title" data-pt="Onde o modelo aprendeu a olhar" data-en="Where the model learned to look">Onde o modelo aprendeu a olhar</h2>
+      </div>
+      <p class="lede dropcap" data-pt-html='Um perfil de temperatura do choke de produção (T-TPT) durante um evento de <em>BSW Abrupt Increase</em>. A linha se mantém estável, depois se desvia — e é exatamente essa janela de poucos minutos que carrega a maior parte da importância SHAP do modelo.' data-en-html='A temperature profile from the production choke (T-TPT) during a <em>BSW Abrupt Increase</em> event. The line stays stable, then deviates — and it is exactly that few-minute window that carries most of the SHAP importance of the model.'>Um perfil de temperatura do choke de produção (T-TPT) durante um evento de <em>BSW Abrupt Increase</em>. A linha se mantém estável, depois se desvia — e é exatamente essa janela de poucos minutos que carrega a maior parte da importância SHAP do modelo.</p>
+
+      <div class="welllog-wrap">
+        <div class="welllog">
+          <svg viewBox="0 0 640 220" preserveAspectRatio="none">
+            <!-- gridlines -->
+            <line x1="0" y1="40" x2="640" y2="40" stroke="var(--rule)" stroke-width="1"/>
+            <line x1="0" y1="90" x2="640" y2="90" stroke="var(--rule)" stroke-width="1"/>
+            <line x1="0" y1="140" x2="640" y2="140" stroke="var(--rule)" stroke-width="1"/>
+            <line x1="0" y1="190" x2="640" y2="190" stroke="var(--rule)" stroke-width="1"/>
+
+            <!-- anomaly band -->
+            <rect x="360" y="10" width="110" height="200" fill="var(--gold)" opacity="0.14"/>
+
+            <!-- T-JUS-CKP series -->
+            <path d="M0,120 C40,118 80,122 120,119 C160,117 200,121 240,118 C280,116 320,119 360,112 C390,96 410,150 430,168 C455,182 480,140 520,124 C560,112 600,116 640,114"
+              fill="none" stroke="var(--c-flow)" stroke-width="2"/>
+
+            <!-- T-TPT series (the one with anomaly) -->
+            <path d="M0,150 C40,151 80,149 120,150 C160,151 200,149 240,150 C280,150 320,149 360,146 C378,120 392,60 405,52 C418,46 432,58 445,86 C460,112 478,140 500,148 C540,150 580,149 640,150"
+              fill="none" stroke="var(--c-bsw)" stroke-width="2.4"/>
+
+            <!-- annotation bracket -->
+            <path d="M360,14 L470,14" stroke="var(--gold-strong)" stroke-width="1" stroke-dasharray="3 3"/>
+            <line x1="360" y1="8" x2="360" y2="20" stroke="var(--gold-strong)" stroke-width="1"/>
+            <line x1="470" y1="8" x2="470" y2="20" stroke="var(--gold-strong)" stroke-width="1"/>
+          </svg>
+          <p class="annotation" data-pt='"BSW Abrupt Increase detectado — janela 03:42:11 – 03:47:48. T‑TPT sobe 8,4°C acima da média móvel de 30 min."' data-en='"BSW Abrupt Increase detected — window 03:42:11 – 03:47:48. T‑TPT rises 8.4°C above the 30-min rolling average."'>"BSW Abrupt Increase detectado — janela 03:42:11 – 03:47:48. T‑TPT sobe 8,4°C acima da média móvel de 30 min."</p>
+        </div>
+        <div class="shap-side">
+          <div class="shap-title" data-pt="Importância média (|SHAP|)" data-en="Mean importance (|SHAP|)">Importância média (|SHAP|)</div>
+          <div class="shap-row"><div class="slabel">T-JUS-CKP</div><div class="shap-track"><div class="shap-fill" style="width:100%"></div></div></div>
+          <div class="shap-row" style="margin-bottom:2px;"><span style="font-family:var(--mono);font-size:9px;color:var(--gold-strong);float:right;margin-top:-6px;">59,4%</span></div>
+          <div class="shap-row"><div class="slabel">T-TPT</div><div class="shap-track"><div class="shap-fill" style="width:68%"></div></div></div>
+          <div class="shap-row" style="margin-bottom:2px;"><span style="font-family:var(--mono);font-size:9px;color:var(--ink-faint);float:right;margin-top:-6px;">40,6%</span></div>
+          <div class="shap-row"><div class="slabel" style="color:var(--ink-faint)">Demais sensores</div><div class="shap-track"><div class="shap-fill" style="width:0%"></div></div></div>
+          <div class="shap-row" style="margin-bottom:2px;"><span style="font-family:var(--mono);font-size:9px;color:var(--ink-faint);float:right;margin-top:-6px;">0% — 100% NaN no Silver</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== VI. DEMO ===== -->
+    <section class="chapter" id="s6">
+      <div class="chapter-head">
+        <div class="chapter-eyebrow"><span class="eyebrow" data-pt="VI — Demo · Predição" data-en="VI — Demo · Prediction">VI — Demo · Predição</span><span class="line"></span></div>
+        <h2 class="chapter-title" data-pt="Experimente com sua própria série" data-en="Try it with your own series">Experimente com sua própria série</h2>
+      </div>
+      <p class="lede" data-pt="Envie um CSV de telemetria — ou gere um exemplo sintético — e veja o modelo campeão classificar cada instante em uma das seis classes." data-en="Upload a telemetry CSV — or generate a synthetic example — and watch the champion model classify each instant into one of the six classes.">Envie um CSV de telemetria — ou gere um exemplo sintético — e veja o modelo campeão classificar cada instante em uma das seis classes.</p>
+
+      <div class="demo-box">
+        <div class="demo-fig" data-pt="Figura 6 — Interface de inferência ao vivo" data-en="Figure 6 — Live inference interface">Figura 6 — Interface de inferência ao vivo</div>
+        <div class="demo-grid">
+          <div>
+            <div class="dropzone" id="dropzone" tabindex="0" role="button"
+                 data-pt-aria="Enviar arquivo CSV" data-en-aria="Upload CSV file"
+                 aria-label="Enviar arquivo CSV">
+              <div class="icon">⤒</div>
+              <div class="t" data-pt="Arraste um CSV de sensores aqui" data-en="Drag a sensor CSV here">Arraste um CSV de sensores aqui</div>
+              <div class="s" id="dropzoneStatus" data-pt="T-TPT, T-JUS-CKP — clique ou arraste" data-en="T-TPT, T-JUS-CKP — click or drag">T-TPT, T-JUS-CKP — clique ou arraste</div>
+            </div>
+            <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none">
+
+            <div class="gen-row">
+              <select id="genClassSelect" aria-label="Tipo de evento a simular">
+                <option value="random" data-pt="Aleatório" data-en="Random">Aleatório</option>
+                <option value="c0">Normal (Cl. 0)</option>
+                <option value="c1">BSW Abrupt Increase (Cl. 1)</option>
+                <option value="c2">DHSV Spurious Closure (Cl. 2)</option>
+                <option value="c4">Flow Instability (Cl. 4)</option>
+                <option value="c6">PCK Quick Restriction (Cl. 6)</option>
+                <option value="c7">Scaling in PCK (Cl. 7)</option>
+              </select>
+            </div>
+            <div class="btn-row">
+              <button class="btn solid" type="button" id="btnGenCsv" data-pt="Gerar CSV de exemplo" data-en="Generate sample CSV">Gerar CSV de exemplo</button>
+              <button class="btn gold" type="button" id="btnClassify" data-pt="Classificar série" data-en="Classify series">Classificar série</button>
+            </div>
+            <div class="demo-status" id="demoStatus" data-pt="Gere ou envie uma série para começar." data-en="Generate or upload a series to begin.">Gere ou envie uma série para começar.</div>
+          </div>
+          <div>
+            <div class="shap-title" data-pt="Resultado — distribuição predita" data-en="Result — predicted distribution">Resultado — distribuição predita</div>
+            <div class="donut-row">
+              <div class="donut-wrap"><div class="donut-ring" id="donutRing"></div></div>
+              <div class="legend-mini" id="legendMini">
+                <div data-pt="Aguardando série…" data-en="Waiting for a series…">Aguardando série…</div>
+              </div>
+            </div>
+            <div class="mini-timeline" id="miniTimeline"></div>
+            <div class="scale-note" data-pt="Linha do tempo classificada — cada segmento é uma janela de predição." data-en="Classified timeline — each segment is a prediction window.">Linha do tempo classificada — cada segmento é uma janela de predição.</div>
+            <div class="demo-disclaimer" data-pt="Classificação simulada no navegador (heurística local por limiares) — não é o modelo LightGBM real, que roda apenas no backend Streamlit em produção." data-en="Browser-simulated classification (local threshold heuristic) — not the real LightGBM model, which only runs in the production Streamlit backend.">Classificação simulada no navegador (heurística local por limiares) — não é o modelo LightGBM real, que roda apenas no backend Streamlit em produção.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer data-pt-html='3W — DETECÇÃO E CLASSIFICAÇÃO DE EVENTOS INDESEJÁVEIS EM POÇOS DE PETRÓLEO OFFSHORE<br>
+  ALAN PINHEIRO DA SILVA · TCC ENGENHARIA DE DADOS &amp; BIG DATA · PECE / ESCOLA POLITÉCNICA DA USP · 2026<br>
+  ESTE DOCUMENTO É UM MOCKUP EXPLORATÓRIO DE REDESIGN VISUAL — NÃO REFLETE O APLICATIVO STREAMLIT EM PRODUÇÃO.' data-en-html='3W — DETECTION AND CLASSIFICATION OF UNDESIRABLE EVENTS IN OFFSHORE OIL WELLS<br>
+  ALAN PINHEIRO DA SILVA · DATA ENGINEERING &amp; BIG DATA CAPSTONE THESIS · PECE / ESCOLA POLITÉCNICA DA USP · 2026<br>
+  THIS DOCUMENT IS AN EXPLORATORY VISUAL REDESIGN MOCKUP — IT DOES NOT REFLECT THE PRODUCTION STREAMLIT APPLICATION.'>
+  3W — DETECÇÃO E CLASSIFICAÇÃO DE EVENTOS INDESEJÁVEIS EM POÇOS DE PETRÓLEO OFFSHORE<br>
+  ALAN PINHEIRO DA SILVA · TCC ENGENHARIA DE DADOS &amp; BIG DATA · PECE / ESCOLA POLITÉCNICA DA USP · 2026<br>
+  ESTE DOCUMENTO É UM MOCKUP EXPLORATÓRIO DE REDESIGN VISUAL — NÃO REFLETE O APLICATIVO STREAMLIT EM PRODUÇÃO.
+</footer>
+
+<script>
+(function(){
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var sections = links.map(function(a){ return document.querySelector(a.getAttribute('href')); });
+
+  links.forEach(function(a){
+    a.addEventListener('click', function(e){
+      e.preventDefault();
+      var target = document.querySelector(a.getAttribute('href'));
+      if(target){ target.scrollIntoView({behavior:'smooth', block:'start'}); }
+      links.forEach(function(l){ l.classList.toggle('active', l === a); });
+    });
+  });
+
+  if('IntersectionObserver' in window){
+    var observer = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){
+          var id = '#' + entry.target.id;
+          links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href') === id); });
+        }
+      });
+    }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+    sections.forEach(function(s){ if(s) observer.observe(s); });
+  }
+})();
+</script>
+
+<!-- ============ LANGUAGE TOGGLE (PT-BR / EN) ============ -->
+<script>
+(function(){
+  function applyLang(lang){
+    document.documentElement.setAttribute('data-lang', lang);
+
+    var textNodes = document.querySelectorAll('[data-pt]');
+    for(var i=0; i<textNodes.length; i++){
+      var el = textNodes[i];
+      var val = lang === 'en' ? el.getAttribute('data-en') : el.getAttribute('data-pt');
+      if(val !== null){ el.textContent = val; }
+    }
+
+    var htmlNodes = document.querySelectorAll('[data-pt-html]');
+    for(var j=0; j<htmlNodes.length; j++){
+      var elh = htmlNodes[j];
+      var valh = lang === 'en' ? elh.getAttribute('data-en-html') : elh.getAttribute('data-pt-html');
+      if(valh !== null){ elh.innerHTML = valh; }
+    }
+
+    var langBtn = document.querySelector('.lang-toggle .lang-cur');
+    if(langBtn){ langBtn.textContent = lang === 'en' ? 'EN' : 'PT-BR'; }
+    var langBtnWrap = document.querySelector('.lang-toggle');
+    if(langBtnWrap){
+      langBtnWrap.lastChild.textContent = lang === 'en' ? ' / PT-BR' : ' / EN';
+    }
+
+    document.documentElement.setAttribute('lang', lang === 'en' ? 'en' : 'pt-BR');
+  }
+
+  window.__setLang = function(lang){ applyLang(lang); };
+
+  document.addEventListener('DOMContentLoaded', function(){
+    applyLang(document.documentElement.getAttribute('data-lang') || 'pt');
+  });
+})();
+</script>
+
+<!-- ============ DEMO — GERAR CSV + CLASSIFICAR SÉRIE (simulado no navegador) ============ -->
+<script>
+(function(){
+  function L(pt, en){ return document.documentElement.getAttribute('data-lang') === 'en' ? en : pt; }
+
+  var CLASS_META = {
+    c0:    { label: ['Normal (Cl. 0)','Normal (Cl. 0)'],                       color: 'var(--c-normal)' },
+    c1:    { label: ['BSW Abrupt Increase (Cl. 1)','BSW Abrupt Increase (Cl. 1)'], color: 'var(--c-bsw)' },
+    c2:    { label: ['DHSV Spurious Closure (Cl. 2)','DHSV Spurious Closure (Cl. 2)'], color: 'var(--c-dhsv)' },
+    c4:    { label: ['Flow Instability (Cl. 4)','Flow Instability (Cl. 4)'],   color: 'var(--c-flow)'   },
+    c6:    { label: ['PCK Quick Restriction (Cl. 6)','PCK Quick Restriction (Cl. 6)'], color: 'var(--c-pck)' },
+    c7:    { label: ['Scaling in PCK (Cl. 7)','Scaling in PCK (Cl. 7)'],      color: 'var(--c-scale)'  }
+  };
+  var CLASS_ORDER = ['c0','c1','c2','c4','c6','c7'];
+  var T_JUS_BASE = 64.4, T_TPT_BASE = 116.5;
+
+  var state = { tJus: null, tTpt: null, labels: null, sourceName: null };
+
+  function gaussian(mean, std){
+    var u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return mean + std * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function genSeries(eventKey, n){
+    n = n || 90;
+    var half = Math.floor(n / 2);
+    var span = Math.max(1, n - half - 1);
+    var tJus = [], tTpt = [];
+    for (var i = 0; i < n; i++){ tJus.push(gaussian(T_JUS_BASE, 0.5)); tTpt.push(gaussian(T_TPT_BASE, 0.4)); }
+    if (eventKey === 'c2'){       // DHSV
+      for (var i = half; i < n; i++){ tJus[i] -= 15 * (i - half) / span; }
+    } else if (eventKey === 'c1'){ // BSW
+      for (var i = half; i < n; i++){ tTpt[i] += 10 * (i - half) / span; }
+    } else if (eventKey === 'c4'){ // Flow Instability
+      for (var i = half; i < n; i++){ tJus[i] += Math.sin((i - half) / span * 4 * Math.PI) * 3; }
+    } else if (eventKey === 'c7'){ // Scaling in PCK
+      for (var i = half; i < n; i++){ tJus[i] -= 5 * (i - half) / span; }
+    } else if (eventKey === 'c6'){ // PCK Quick Restriction
+      var stepAt = half + Math.floor(span * 0.15);
+      var recoverAt = Math.min(n - 1, stepAt + Math.floor(span * 0.4));
+      for (var i = stepAt; i < n; i++){ tJus[i] -= 7; }
+      for (var i = recoverAt; i < n; i++){ tJus[i] += 4; }
+    }
+    return { tJus: tJus, tTpt: tTpt };
+  }
+
+  function pickRandomKey(){
+    var keys = ['c0','c1','c2','c4','c6','c7'];
+    return keys[Math.floor(Math.random() * keys.length)];
+  }
+
+  function toCSV(tJus, tTpt){
+    var base = new Date('2024-01-01T00:00:00');
+    var lines = ['timestamp,T-JUS-CKP,T-TPT'];
+    for (var i = 0; i < tJus.length; i++){
+      var d = new Date(base.getTime() + i * 60000);
+      var ts = d.toISOString().slice(0, 19).replace('T', ' ');
+      lines.push(ts + ',' + tJus[i].toFixed(3) + ',' + tTpt[i].toFixed(3));
+    }
+    return lines.join('\n');
+  }
+
+  function downloadText(filename, text){
+    var blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function parseCSV(text){
+    var lines = text.split(/\r?\n/).filter(function(l){ return l.trim().length > 0; });
+    if (lines.length < 2) return null;
+    var header = lines[0].split(',').map(function(h){ return h.trim(); });
+    var idxJus = header.indexOf('T-JUS-CKP'), idxTpt = header.indexOf('T-TPT');
+    if (idxJus === -1 || idxTpt === -1) return null;
+    var tJus = [], tTpt = [];
+    for (var i = 1; i < lines.length; i++){
+      var cols = lines[i].split(',');
+      var vJ = parseFloat(cols[idxJus]), vT = parseFloat(cols[idxTpt]);
+      if (!isNaN(vJ) && !isNaN(vT)){ tJus.push(vJ); tTpt.push(vT); }
+    }
+    if (tJus.length === 0) return null;
+    return { tJus: tJus, tTpt: tTpt };
+  }
+
+  function classifySeries(tJus, tTpt){
+    var n = tJus.length, win = Math.max(4, Math.floor(n * 0.08));
+    var labels = [];
+    for (var i = 0; i < n; i++){
+      var lo = Math.max(0, i - win), hi = Math.min(n, i + win + 1);
+      var sumJ = 0, sumT = 0, cnt = 0;
+      for (var k = lo; k < hi; k++){ sumJ += tJus[k]; sumT += tTpt[k]; cnt++; }
+      var meanJ = sumJ / cnt, meanT = sumT / cnt;
+      var varJ = 0;
+      for (var k = lo; k < hi; k++){ varJ += Math.pow(tJus[k] - meanJ, 2); }
+      var stdJ = Math.sqrt(varJ / cnt);
+      var dJus = meanJ - T_JUS_BASE, dTpt = meanT - T_TPT_BASE;
+      var label = 'c0';
+      if (dTpt > 3) label = 'c1';
+      else if (dJus < -10) label = 'c2';
+      else if (stdJ > 1.6 && Math.abs(dJus) < 6) label = 'c4';
+      else if (dJus < -6) label = 'c6';
+      else if (dJus < -2.2) label = 'c7';
+      labels.push(label);
+    }
+    return labels;
+  }
+
+  function setStatus(pt, en, kind){
+    var el = document.getElementById('demoStatus');
+    el.textContent = L(pt, en);
+    el.setAttribute('data-pt', pt);
+    el.setAttribute('data-en', en);
+    el.className = 'demo-status' + (kind ? ' ' + kind : '');
+  }
+
+  function renderResults(){
+    var labels = state.labels;
+    var donut = document.getElementById('donutRing');
+    var legend = document.getElementById('legendMini');
+    var timeline = document.getElementById('miniTimeline');
+
+    if (!labels){
+      donut.style.background = 'conic-gradient(var(--paper-dim) 0 100%)';
+      legend.innerHTML = '<div data-pt="Aguardando série…" data-en="Waiting for a series…">' + L('Aguardando série…','Waiting for a series…') + '</div>';
+      timeline.innerHTML = '';
+      return;
+    }
+
+    var counts = {}; CLASS_ORDER.forEach(function(k){ counts[k] = 0; });
+    labels.forEach(function(l){ counts[l]++; });
+    var total = labels.length;
+
+    var stops = [], acc = 0;
+    CLASS_ORDER.forEach(function(k){
+      var pct = counts[k] / total * 100;
+      if (pct > 0){
+        var start = acc, end = acc + pct;
+        stops.push(CLASS_META[k].color + ' ' + start.toFixed(2) + '% ' + end.toFixed(2) + '%');
+        acc = end;
+      }
+    });
+    donut.style.background = 'conic-gradient(' + stops.join(', ') + ')';
+
+    legend.innerHTML = '';
+    CLASS_ORDER.forEach(function(k){
+      if (counts[k] === 0) return;
+      var pct = Math.round(counts[k] / total * 100);
+      var row = document.createElement('div');
+      var swatch = document.createElement('i');
+      swatch.style.background = CLASS_META[k].color;
+      row.appendChild(swatch);
+      row.appendChild(document.createTextNode(' ' + L(CLASS_META[k].label[0], CLASS_META[k].label[1]) + ' — ' + pct + '%'));
+      legend.appendChild(row);
+    });
+
+    timeline.innerHTML = '';
+    var buckets = Math.min(60, total);
+    var bucketSize = total / buckets;
+    for (var b = 0; b < buckets; b++){
+      var lo = Math.floor(b * bucketSize), hi = Math.floor((b + 1) * bucketSize);
+      var tally = {};
+      for (var i = lo; i < hi && i < total; i++){ tally[labels[i]] = (tally[labels[i]] || 0) + 1; }
+      var best = 'normal', bestCount = -1;
+      Object.keys(tally).forEach(function(k){ if (tally[k] > bestCount){ best = k; bestCount = tally[k]; } });
+      var seg = document.createElement('div');
+      seg.style.width = (100 / buckets) + '%';
+      seg.style.background = CLASS_META[best].color;
+      timeline.appendChild(seg);
+    }
+  }
+
+  window.__rerenderDemo = renderResults;
+  var prevSetLang = window.__setLang;
+  if (typeof prevSetLang === 'function'){
+    window.__setLang = function(lang){ prevSetLang(lang); renderResults(); };
+  }
+
+  function handleFile(file){
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var parsed = parseCSV(String(e.target.result));
+      if (!parsed){
+        setStatus('CSV inválido — verifique se há colunas T-JUS-CKP e T-TPT.', 'Invalid CSV — check for T-JUS-CKP and T-TPT columns.', 'warn');
+        return;
+      }
+      state.tJus = parsed.tJus; state.tTpt = parsed.tTpt; state.labels = null; state.sourceName = file.name;
+      document.getElementById('dropzoneStatus').textContent = file.name + ' · ' + parsed.tJus.length + (L(' linhas', ' rows'));
+      document.getElementById('dropzoneStatus').classList.add('has-file');
+      setStatus(parsed.tJus.length + ' linhas carregadas — clique em "Classificar série".', parsed.tJus.length + ' rows loaded — click "Classify series".', 'ok');
+      renderResults();
+    };
+    reader.readAsText(file);
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    var dropzone = document.getElementById('dropzone');
+    var fileInput = document.getElementById('csvFileInput');
+    var genSelect = document.getElementById('genClassSelect');
+    var btnGen = document.getElementById('btnGenCsv');
+    var btnClassify = document.getElementById('btnClassify');
+
+    dropzone.addEventListener('click', function(){ fileInput.click(); });
+    dropzone.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fileInput.click(); } });
+    dropzone.addEventListener('dragover', function(e){ e.preventDefault(); dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragleave', function(){ dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', function(e){
+      e.preventDefault(); dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', function(){ if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+    btnGen.addEventListener('click', function(){
+      var key = genSelect.value === 'random' ? pickRandomKey() : genSelect.value;
+      var series = genSeries(key, 90);
+      var eventShortName = key.replace('c','cl');
+      state.tJus = series.tJus; state.tTpt = series.tTpt; state.labels = null; state.sourceName = 'sample_' + eventShortName + '.csv';
+      downloadText(state.sourceName, toCSV(series.tJus, series.tTpt));
+      document.getElementById('dropzoneStatus').textContent = state.sourceName + ' · 90' + L(' linhas (baixado)', ' rows (downloaded)');
+      document.getElementById('dropzoneStatus').classList.add('has-file');
+      setStatus('CSV de exemplo gerado e baixado — clique em "Classificar série" para testar.', 'Sample CSV generated and downloaded — click "Classify series" to test it.', 'ok');
+      renderResults();
+    });
+
+    btnClassify.addEventListener('click', function(){
+      if (!state.tJus){
+        setStatus('Gere ou envie um CSV primeiro.', 'Generate or upload a CSV first.', 'warn');
+        return;
+      }
+      state.labels = classifySeries(state.tJus, state.tTpt);
+      var n = state.labels.length;
+      setStatus(n + ' linhas classificadas (heurística local).', n + ' rows classified (local heuristic).', 'ok');
+      renderResults();
+    });
+
+    renderResults();
+  });
+})();
+</script>

@@ -1,65 +1,65 @@
 {
   "modelo": "LightGBM baseline",
-  "n_amostras_shap": 600,
+  "n_amostras_shap": 300,
   "n_features": 136,
   "classes": {
     "0": {
       "label": "Normal",
       "top_10_features": [
         {
-          "feature": "T_JUS_CKP_roll_min_30_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.874553
-        },
-        {
-          "feature": "T_JUS_CKP_roll_min_10_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.815854
-        },
-        {
-          "feature": "T_JUS_CKP_roll_max_10_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.716361
-        },
-        {
-          "feature": "T_JUS_CKP_roll_std_5_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.470649
-        },
-        {
-          "feature": "T_JUS_CKP_roll_std_30_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.413008
-        },
-        {
-          "feature": "T_JUS_CKP_roll_std_10_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.314885
-        },
-        {
-          "feature": "T_JUS_CKP_roll_max_5_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.245895
+          "feature": "T_TPT_roll_max_30_norm",
+          "sensor": "T-TPT",
+          "shap_mean_abs": 1.129389
         },
         {
           "feature": "T_JUS_CKP_roll_max_30_norm",
           "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.234768
+          "shap_mean_abs": 0.714244
         },
         {
           "feature": "T-JUS-CKP_norm",
           "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.214044
+          "shap_mean_abs": 0.696812
         },
         {
-          "feature": "T_TPT_roll_max_30_norm",
+          "feature": "T_JUS_CKP_lag_5_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.609153
+        },
+        {
+          "feature": "T_JUS_CKP_roll_std_30_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.513682
+        },
+        {
+          "feature": "T_JUS_CKP_roll_min_30_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.401646
+        },
+        {
+          "feature": "T-TPT_norm",
           "sensor": "T-TPT",
-          "shap_mean_abs": 0.194583
+          "shap_mean_abs": 0.290994
+        },
+        {
+          "feature": "T_JUS_CKP_roll_mean_30_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.225537
+        },
+        {
+          "feature": "T_JUS_CKP_lag_1_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.204923
+        },
+        {
+          "feature": "T_JUS_CKP_roll_max_5_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.201493
         }
       ],
       "sensor_importance_pct": {
-        "T-JUS-CKP": 79.8,
-        "T-TPT": 20.2,
+        "T-JUS-CKP": 64.6,
+        "T-TPT": 35.4,
         "P-PDG": 0.0,
         "P-TPT": 0.0,
         "P-MON-CKP": 0.0,
@@ -72,59 +72,59 @@
       "label": "BSW Abrupt",
       "top_10_features": [
         {
-          "feature": "T_JUS_CKP_lag_5_norm",
+          "feature": "T_JUS_CKP_roll_min_30_norm",
           "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.439091
-        },
-        {
-          "feature": "T_JUS_CKP_roll_max_5_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.328743
-        },
-        {
-          "feature": "T_JUS_CKP_roll_std_5_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.256819
+          "shap_mean_abs": 2.105046
         },
         {
           "feature": "T_JUS_CKP_roll_max_30_norm",
           "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.211206
+          "shap_mean_abs": 1.009328
         },
         {
-          "feature": "T-TPT_norm",
+          "feature": "T_JUS_CKP_roll_max_5_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.866939
+        },
+        {
+          "feature": "T_JUS_CKP_roll_min_5_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.771025
+        },
+        {
+          "feature": "T_TPT_roll_min_30_norm",
           "sensor": "T-TPT",
-          "shap_mean_abs": 0.160519
+          "shap_mean_abs": 0.605874
+        },
+        {
+          "feature": "T-JUS-CKP_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.435669
+        },
+        {
+          "feature": "T_JUS_CKP_roll_mean_5_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.390254
         },
         {
           "feature": "T_JUS_CKP_lag_1_norm",
           "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.156642
-        },
-        {
-          "feature": "T_JUS_CKP_roll_mean_10_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.124502
-        },
-        {
-          "feature": "T_TPT_roll_mean_30_norm",
-          "sensor": "T-TPT",
-          "shap_mean_abs": 0.115644
-        },
-        {
-          "feature": "T_JUS_CKP_lag_3_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.113084
+          "shap_mean_abs": 0.213512
         },
         {
           "feature": "T_JUS_CKP_roll_std_10_norm",
           "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.081673
+          "shap_mean_abs": 0.183107
+        },
+        {
+          "feature": "T_TPT_roll_min_10_norm",
+          "sensor": "T-TPT",
+          "shap_mean_abs": 0.164944
         }
       ],
       "sensor_importance_pct": {
-        "T-JUS-CKP": 77.6,
-        "T-TPT": 22.4,
+        "T-JUS-CKP": 83.6,
+        "T-TPT": 16.4,
         "P-PDG": 0.0,
         "P-TPT": 0.0,
         "P-MON-CKP": 0.0,
@@ -137,59 +137,59 @@
       "label": "Scaling",
       "top_10_features": [
         {
-          "feature": "T_JUS_CKP_roll_std_30_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 1.363865
-        },
-        {
-          "feature": "T_JUS_CKP_roll_max_30_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.761815
-        },
-        {
           "feature": "T_TPT_roll_std_30_norm",
           "sensor": "T-TPT",
-          "shap_mean_abs": 0.562523
-        },
-        {
-          "feature": "T_TPT_roll_max_10_norm",
-          "sensor": "T-TPT",
-          "shap_mean_abs": 0.333823
+          "shap_mean_abs": 0.281314
         },
         {
           "feature": "T_TPT_roll_std_5_norm",
           "sensor": "T-TPT",
-          "shap_mean_abs": 0.284278
-        },
-        {
-          "feature": "T_JUS_CKP_roll_std_5_norm",
-          "sensor": "T-JUS-CKP",
-          "shap_mean_abs": 0.274164
-        },
-        {
-          "feature": "T_TPT_delta_norm",
-          "sensor": "T-TPT",
-          "shap_mean_abs": 0.261292
-        },
-        {
-          "feature": "T_TPT_roll_min_30_norm",
-          "sensor": "T-TPT",
-          "shap_mean_abs": 0.236792
+          "shap_mean_abs": 0.273715
         },
         {
           "feature": "T_TPT_roll_std_10_norm",
           "sensor": "T-TPT",
-          "shap_mean_abs": 0.231423
+          "shap_mean_abs": 0.272136
         },
         {
-          "feature": "T_TPT_roll_min_10_norm",
+          "feature": "T_JUS_CKP_roll_std_30_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.247897
+        },
+        {
+          "feature": "T_JUS_CKP_roll_min_30_norm",
+          "sensor": "T-JUS-CKP",
+          "shap_mean_abs": 0.185547
+        },
+        {
+          "feature": "T_TPT_delta_norm",
           "sensor": "T-TPT",
-          "shap_mean_abs": 0.210659
+          "shap_mean_abs": 0.185073
+        },
+        {
+          "feature": "T_TPT_roll_mean_30_norm",
+          "sensor": "T-TPT",
+          "shap_mean_abs": 0.15674
+        },
+        {
+          "feature": "T_TPT_roll_max_30_norm",
+          "sensor": "T-TPT",
+          "shap_mean_abs": 0.155191
+        },
+        {
+          "feature": "T_TPT_roll_min_30_norm",
+          "sensor": "T-TPT",
+          "shap_mean_abs": 0.128092
+        },
+        {
+          "feature": "T_TPT_roll_max_10_norm",
+          "sensor": "T-TPT",
+          "shap_mean_abs": 0.105213
         }
       ],
       "sensor_importance_pct": {
-        "T-TPT": 52.5,
-        "T-JUS-CKP": 47.5,
+        "T-TPT": 78.4,
+        "T-JUS-CKP": 21.6,
         "P-PDG": 0.0,
         "P-TPT": 0.0,
         "P-MON-CKP": 0.0,
@@ -200,8 +200,8 @@
     }
   },
   "sensor_importance_global": {
-    "T-JUS-CKP": 69.36,
-    "T-TPT": 30.64,
+    "T-JUS-CKP": 59.43,
+    "T-TPT": 40.57,
     "P-PDG": 0.0,
     "P-TPT": 0.0,
     "P-MON-CKP": 0.0,

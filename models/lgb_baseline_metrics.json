@@ -1,26 +1,26 @@
 {
   "model": "LGBMClassifier",
-  "n_estimators_max": 1000,
-  "best_iteration": 1000,
+  "n_estimators_max": 500,
+  "best_iteration": 500,
   "num_leaves": 31,
   "max_depth": -1,
   "learning_rate": 0.05,
   "class_weight": "is_unbalance=True",
   "val": {
-    "accuracy": 0.999,
-    "f1_weighted": 0.999,
-    "f1_macro": 0.9626
+    "accuracy": 0.9956,
+    "f1_weighted": 0.9956,
+    "f1_macro": 0.9266
   },
   "test": {
-    "accuracy": 0.999,
-    "f1_weighted": 0.999,
-    "f1_macro": 0.9619
+    "accuracy": 0.9958,
+    "f1_weighted": 0.9957,
+    "f1_macro": 0.919
   },
   "top5_features": [
     "T_TPT_roll_std_30_norm",
-    "T_JUS_CKP_delta_norm",
     "T_TPT_roll_std_10_norm",
     "T_TPT_roll_std_5_norm",
-    "T_JUS_CKP_roll_std_30_norm"
+    "T_TPT_delta_norm",
+    "T_JUS_CKP_delta_norm"
   ]
 }

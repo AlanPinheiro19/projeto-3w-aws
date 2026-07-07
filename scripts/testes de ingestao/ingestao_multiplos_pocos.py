@@ -1,7 +1,7 @@
 """
 Script: ingestao_todas_classes.py
 Descricao: Ingestion of ALL Classes (0 to 9) Parquet files from Petrobras 3W dataset.
-            Filters files for wells: WELL-00002, WELL-00004, WELL-00006.
+            Filters files for wells: WELL-00001, WELL-00002, WELL-00006.
             Extracts ID_Poco, data_medicao, and classe_evento from filename/path.
 Author: Alan Pinheiro da Silva
 Date: 2025-01-08
@@ -26,7 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 CLASSES = [str(i) for i in range(10)]  # ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
 # Wells to filter
-WELLS_TO_FILTER = ["WELL-00002", "WELL-00004", "WELL-00006"]
+WELLS_TO_FILTER = ["WELL-00001", "WELL-00002", "WELL-00006"]
 
 # Base directories
 BASE_DIR = Path(os.environ.get("PROJECT_DIR", Path(__file__).resolve().parent.parent.parent)) / "data"

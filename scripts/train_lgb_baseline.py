@@ -85,19 +85,63 @@ def parse_args():
     p.add_argument('--early-stopping', type=int,   default=50,
                    help='Rounds sem melhora para parar (default: 50)')
     p.add_argument('--n-jobs',         type=int,   default=-1)
+    p.add_argument('--max-samples',    type=int,   default=500_000,
+                   help='Máx amostras de treino via chunks estratificados (default: 500000). '
+                        '0 = carrega tudo. Igualado ao RF para comparação justa.')
     p.add_argument('--verbose',        action='store_true')
     return p.parse_args()
 
-# ── Carregamento ──────────────────────────────────────────────────────────────
-def load_data():
-    from sklearn.model_selection import train_test_split
+# ── Carregamento com chunked sampling (igual ao RF) ───────────────────────────
+def load_data(max_samples: int = 500_000):
+    """Carrega splits Gold em chunks com amostragem estratificada por classe.
 
-    print('Carregando dados Gold...')
+    Idêntico ao train_rf_baseline.py para garantir comparação justa entre modelos:
+    todos treinam no mesmo volume de dados e mesma distribuição de classes.
+
+    max_samples: limite de linhas para train (val e test usam max_samples//3).
+    0 = carrega o dataset completo sem amostragem.
+    """
+    import pyarrow.parquet as pq
+
+    print('Carregando dados Gold (chunked sampling estratificado)...')
     print(f'  Diretório Gold: {GOLD_DIR}')
 
-    train = pd.read_parquet(GOLD_DIR / 'train.parquet')
-    val   = pd.read_parquet(GOLD_DIR / 'val.parquet')
-    test  = pd.read_parquet(GOLD_DIR / 'test.parquet')
+    CHUNK_SIZE = 30_000   # linhas por batch de leitura
+
+    def _read_chunked(path, max_rows, class_col='class'):
+        """Lê parquet em chunks e amostra estratificadamente para caber em max_rows."""
+        pf    = pq.ParquetFile(str(path))
+        total = pf.metadata.num_rows
+        rate  = (max_rows / total) if (max_rows and total > max_rows) else 1.0
+        chunks, rows = [], 0
+        for batch in pf.iter_batches(batch_size=CHUNK_SIZE):
+            chunk = batch.to_pandas()
+            if rate < 1.0 and class_col in chunk.columns:
+                chunk = (chunk.groupby(class_col, group_keys=False)
+                              .apply(lambda g: g.sample(
+                                  n=max(1, round(len(g) * rate)),
+                                  random_state=42))
+                              .reset_index(drop=True))
+            elif rate < 1.0:
+                chunk = chunk.sample(n=max(1, round(len(chunk) * rate)),
+                                     random_state=42)
+            chunks.append(chunk)
+            rows += len(chunk)
+            if max_rows and rows >= max_rows:
+                break
+        if not chunks:
+            return pd.DataFrame()
+        result = pd.concat(chunks, ignore_index=True)
+        tag = f'{total:,} → {len(result):,} (estratificado)' if total > max_rows and max_rows else f'{len(result):,}'
+        print(f'  {path.name}: {tag}')
+        return result
+
+    val_max  = max_samples // 3 if max_samples else 0
+    test_max = max_samples // 3 if max_samples else 0
+
+    val   = _read_chunked(GOLD_DIR / 'val.parquet',   val_max)
+    test  = _read_chunked(GOLD_DIR / 'test.parquet',  test_max)
+    train = _read_chunked(GOLD_DIR / 'train.parquet', max_samples)
     print(f'  train={len(train):,}  val={len(val):,}  test={len(test):,}')
 
     total = len(train) + len(val) + len(test)
@@ -114,24 +158,24 @@ def load_data():
         print(f'  [AVISO] Sem features _norm — usando {len(feat_cols)} sensores brutos')
     print(f'  Features: {len(feat_cols)}')
 
-    # ── Fix: split estratificado quando o split temporal deixa classes fora do treino ──
-    all_data      = pd.concat([train, val, test], ignore_index=True)
-    classes_all   = set(all_data['class'].unique())
-    classes_train = set(train['class'].unique())
-    missing       = classes_all - classes_train
+    # ── Split estratificado se classes ausentes em algum split ────────────────
+    from sklearn.model_selection import train_test_split
+    all_data    = pd.concat([train, val, test], ignore_index=True)
+    classes_all = set(all_data['class'].unique())
+    missing     = (classes_all - set(train['class'].unique())
+                   | classes_all - set(val['class'].unique())
+                   | classes_all - set(test['class'].unique()))
 
     if missing:
-        print(f'\n  [AVISO] Split temporal excluiu {len(missing)} classe(s) do treino: '
+        print(f'\n  [AVISO] Classes ausentes em algum split: '
               f'{sorted(int(c) for c in missing)}')
-        print('  → Aplicando split ESTRATIFICADO por classe (15% val, 15% test)...')
+        print('  → Aplicando split ESTRATIFICADO global (15% val, 15% test)...')
         y_all = all_data['class'].values.astype('int32')
         X_all = all_data[feat_cols].values.astype('float32')
-
         X_tmp, X_test_s, y_tmp, y_test_s = train_test_split(
             X_all, y_all, test_size=0.15, random_state=42, stratify=y_all)
         X_train_s, X_val_s, y_train_s, y_val_s = train_test_split(
             X_tmp, y_tmp, test_size=round(0.15/0.85, 6), random_state=42, stratify=y_tmp)
-
         print(f'  Split estratificado: train={len(y_train_s):,}  '
               f'val={len(y_val_s):,}  test={len(y_test_s):,}')
     else:
@@ -142,9 +186,9 @@ def load_data():
         X_test_s  = test[feat_cols].values.astype('float32')
         y_test_s  = test['class'].values.astype('int32')
 
-    # ── Fix: _clean com contagem correta de NaN/Inf ───────────────────────────
+    # ── Sanitiza NaN / Inf ────────────────────────────────────────────────────
     def _clean(X, name):
-        bad = int((~np.isfinite(X)).sum())   # parênteses: logical NOT no array primeiro
+        bad = int((~np.isfinite(X)).sum())
         if bad:
             print(f'  [AVISO] {name}: {bad} NaN/Inf → substituídos por 0')
         return np.where(np.isfinite(X), X, np.float32(0.0)).astype('float32')
@@ -343,7 +387,9 @@ def main():
     print(f'PROJECT_DIR : {PROJECT_DIR}')
     print(f'lightgbm    : {lgb.__version__}')
 
-    X_train, y_train, X_val, y_val, X_test, y_test, feat_cols = load_data()
+    X_train, y_train, X_val, y_val, X_test, y_test, feat_cols = load_data(
+        max_samples=args.max_samples
+    )
     clf = train_model(X_train, y_train, X_val, y_val, args)
 
     classes = sorted(np.unique(np.concatenate([y_train, y_val, y_test])))

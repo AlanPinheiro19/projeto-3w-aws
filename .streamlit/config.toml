@@ -1,3 +1,4 @@
+# Fonte única das 4 cores compartilhadas do tema — lidas em app.py via st.get_option("theme.*")
 [theme]
 base            = "dark"
 primaryColor    = "#2979FF"

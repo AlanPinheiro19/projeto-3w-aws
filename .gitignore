@@ -44,15 +44,6 @@ artigo_cientifico*.docx
 artigo_cientifico*.pdf
 ~$*.docx
 
-# HTML de rascunho / mockups / posts LinkedIn (não são parte do código)
-linkedin*.*
-dashboard_editorial*.html
-mockup_*.html
-
-# CVs pessoais
-CV_*.docx
-PROFILE_README.md
-
 # ------------------------------------------------------------
 # CREDENCIAIS E SEGREDOS (NUNCA versionar)
 # ------------------------------------------------------------

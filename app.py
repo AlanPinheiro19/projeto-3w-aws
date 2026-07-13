@@ -259,7 +259,6 @@ def load_thresholds():
     p = MODELS / "threshold_tuning_results.json"
     return json.loads(p.read_text()) if p.exists() else {}
 
-@st.cache_data
 def load_shap():
     p = MODELS / "shap_results.json"
     return json.loads(p.read_text()) if p.exists() else {}
@@ -562,8 +561,8 @@ def render_resultados_ml():
     with col_m1:
         st.markdown("#### F1-Macro — Baseline vs Tuning")
         labels_m = ["Random Forest","XGBoost","LightGBM"]
-        f1_b  = [0.9113, 0.9002, 0.9619]
-        f1_t  = [0.9373, 0.9574, 0.9619]
+        f1_b  = [0.8100, 0.8340, 0.9670]
+        f1_t  = [0.8940, 0.9320, 0.9670]
         fig_f = go.Figure()
         fig_f.add_bar(name="Baseline", x=labels_m, y=f1_b, marker_color=BG_BORDER,
                       text=[f"{v*100:.1f}%" for v in f1_b], textposition="outside")

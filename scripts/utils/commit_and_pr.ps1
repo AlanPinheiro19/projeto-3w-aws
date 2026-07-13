@@ -5,7 +5,11 @@
 #  Pre-requisito: fechar VS Code / Git Bash antes de rodar
 # ============================================================
 
-$TOKEN  = "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"
+# Defina seu PAT como variavel de ambiente ou passe como argumento:
+# $env:GITHUB_TOKEN = "ghp_seu_token_aqui"
+param([string]$Token = $env:GITHUB_TOKEN)
+if (-not $Token) { Write-Host "ERRO: defina env:GITHUB_TOKEN ou passe -Token" -ForegroundColor Red; exit 1 }
+$TOKEN  = $Token
 $OWNER  = "AlanPinheiro19"
 $REPO   = "projeto-3w-aws"
 $BRANCH = "feat/refactor-wells-001-002-006"

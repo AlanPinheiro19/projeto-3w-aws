@@ -1,77 +1,118 @@
-# Pasta de dados (dataset da Petrobras 3W)
+# ============================================================
+# .gitignore — projeto-3w-aws
+# ============================================================
+
+# ------------------------------------------------------------
+# DADOS (dataset Petrobras 3W — nunca versionar)
+# ------------------------------------------------------------
 data/
+3W/
+datasets/
 *.parquet
 *.csv
 
-# Pastas com dados brutos
-3W/
-data/
-datasets/
-
-# Arquivos temporários
-*.tmp
-*.log
-__pycache__/
-*.pyc
-
-# Modelos serializados (arquivos grandes — use Git LFS se precisar versionar)
+# ------------------------------------------------------------
+# MODELOS SERIALIZADOS (use Git LFS se precisar versionar)
+# ------------------------------------------------------------
 models/*.joblib
 models/*.pkl
 models/*.pt
 models/*.h5
 
-# Credenciais (NUNCA suba!)
-.env
-credentials.json
-aws-keys.json
-# Terraform — segredos e estado (NUNCA versionar)
+# Artefatos gerados pelo pipeline ML (regeneráveis a qualquer momento)
+models/*.png
+models/*.json
+models/*.txt
+models/*.csv
 
-# Documentos acadêmicos (privados até defesa pública)
+# ------------------------------------------------------------
+# RELATÓRIOS E DASHBOARDS GERADOS
+# ------------------------------------------------------------
+reports/
+notebooks/fig_*.png
+notebooks/notebook_teste.py
+
+# ------------------------------------------------------------
+# DOCUMENTOS ACADÊMICOS (privados até defesa pública)
+# ------------------------------------------------------------
 monografia*.docx
 monografia*.pdf
 cronograma*.docx
 relatorio_status*.docx
 guia_deploy*.docx
-~$*.docx
-tf
-terraform/*_override.tf
-
-# Logs de containers
-logs/
-
-# Dados gerados localmente (volume Docker)
-data/processed/all_classes_combined.*
-
-# Ambiente virtual
-venv/
-env/
-.venv/
-
-# VS Code (opcional)
-.vscode/
-
-# Documentos acadêmicos (privados até defesa pública)
-monografia*.docx
-monografia*.pdf
-cronograma*.docx
-relatorio_status*.docx
-guia_deploy*.docx
+artigo_cientifico*.docx
+artigo_cientifico*.pdf
 ~$*.docx
 
-# Temporarios Windows
-~$*
-
-# Pastas de sessao Claude
-.claude/
-
-# Terraform state local
-terraform/.terraform/
-terraform/terraform.tfstate
-terraform/terraform.tfvars
+# HTML de rascunho / mockups / posts LinkedIn (não são parte do código)
+linkedin*.*
+dashboard_editorial*.html
+mockup_*.html
 
 # CVs pessoais
 CV_*.docx
 PROFILE_README.md
 
-# Projeto separado
+# ------------------------------------------------------------
+# CREDENCIAIS E SEGREDOS (NUNCA versionar)
+# ------------------------------------------------------------
+.env
+credentials.json
+aws-keys.json
+
+# ------------------------------------------------------------
+# TERRAFORM — estado e segredos
+# ------------------------------------------------------------
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+terraform/*_override.tf
+
+# ------------------------------------------------------------
+# JUPYTER
+# ------------------------------------------------------------
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+
+# ------------------------------------------------------------
+# PYTHON / AMBIENTE
+# ------------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.tmp
+*.log
+venv/
+env/
+.venv/
+
+# ------------------------------------------------------------
+# LOGS DE CONTAINERS
+# ------------------------------------------------------------
+logs/
+
+# Dados gerados localmente (volume Docker)
+data/processed/all_classes_combined.*
+
+# ------------------------------------------------------------
+# FERRAMENTAS / IDE
+# ------------------------------------------------------------
+.vscode/
+CLAUDE.md
+settings.json
+.claude/
+
+# Temporários Windows
+~$*
+
+# ------------------------------------------------------------
+# SCRIPTS DE TESTE LEGADOS (pasta com espaço — não faz parte da pipeline)
+# ------------------------------------------------------------
+scripts/testes de ingestao/
+
+# ------------------------------------------------------------
+# PROJETOS SEPARADOS
+# ------------------------------------------------------------
 nlp-petroleo-rag/
